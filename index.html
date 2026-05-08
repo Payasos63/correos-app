@@ -84,6 +84,7 @@ body.light-mode .card{background:#ffffff}
 .pin-box input::placeholder{color:#64748b;font-size:14px}
 .pin-box button{background:#eab308;border:none;border-radius:12px;padding:12px;width:100%;font-weight:bold;cursor:pointer}
 .error-pin{color:#dc2626;font-size:12px;margin-top:10px}
+.pin-help{font-size:9px;color:#64748b;margin-top:8px}
 footer{text-align:center;font-size:6px;color:#475569;margin-top:12px}
 </style>
 </head>
@@ -94,6 +95,7 @@ footer{text-align:center;font-size:6px;color:#475569;margin-top:12px}
 <input type="password" id="pinInput" maxlength="4" placeholder="Ingrese PIN">
 <button id="unlockBtn">DESBLOQUEAR</button>
 <div id="pinError" class="error-pin"></div>
+<div class="pin-help">PIN de acceso: 1515</div>
 </div>
 </div>
 
@@ -197,13 +199,14 @@ footer{text-align:center;font-size:6px;color:#475569;margin-top:12px}
 // ============================================================
 // LUIS R - CORREOS ETERNOS PWA
 // PIN DE ACCESO: 1515
+// API Key FreeCustom ACTUALIZADA
 // ============================================================
 const PIN = '1515';
 const STORAGE_KEY = 'luisr_pwa';
 const ITEMS_PER_PAGE = 20;
 const TELEGRAM_TOKEN = '8708803857:AAHsIF_AbBuM_GPam1MWYBBRFycRSWAA4Cs';
 const TELEGRAM_CHAT_ID = '1183299436';
-const FREECUSTOM_API_KEY = 'fce_504973bcc74ac842a718fa6a20ebd4e83f9ab298b377fd5aba38e7ea252c6a7d';
+const FREECUSTOM_API_KEY = 'f70110f6103590227c95a350b36f2c159849d9728e50d71b47e6d717cd524ed9';
 
 let currentProvider = '1secmail';
 let currentEmail = '', currentLogin = '', currentDomain = '', emailCreatedAt = null;
@@ -222,7 +225,6 @@ let gmailCodigos = 'manzaxxoop@gmail.com';
 let gmailPagos = 'calvoe847@gmail.com';
 let gmailTodo = 'usototal057@gmail.com';
 
-// PIN validation
 let appUnlocked = false;
 
 const providerExpiry = { '1secmail': 24, 'guerrilla': 1, 'mailtm': 999999, 'getnada': 168, 'freecustom': 999999 };
@@ -410,7 +412,8 @@ async function generateFreecustom() {
     }
     try {
         const res = await fetch('https://api.freecustom.email/v1/inboxes', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Key': FREECUSTOM_API_KEY },
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': FREECUSTOM_API_KEY },
             body: JSON.stringify({})
         });
         const data = await res.json();
@@ -425,7 +428,7 @@ async function generateFreecustom() {
             throw new Error(data.message || 'Error creating inbox');
         }
     } catch(e) {
-        showToast('❌ Error con FreeCustom', true);
+        showToast('❌ Error con FreeCustom. API Key inválida o expirada', true);
         return false;
     }
 }
@@ -819,7 +822,6 @@ document.getElementById('unlockBtn')?.addEventListener('click', function() {
         document.getElementById('appContent').style.display = 'block';
         loadData();
         
-        // Initialize all event listeners
         document.querySelectorAll('.provider-btn').forEach(btn=>{btn.onclick=()=>{currentProvider=btn.dataset.provider; updateProviderUI(); updateMailDisplay(); saveData(); showToast(`📡 ${providerNames[currentProvider]}`, false); renderCurrentTab();};});
         document.getElementById('genBtn').onclick=generateEmail;
         document.getElementById('copyBtn').onclick=copyEmail;
