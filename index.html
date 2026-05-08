@@ -199,7 +199,7 @@ footer{text-align:center;font-size:6px;color:#475569;margin-top:12px}
 // ============================================================
 // LUIS R - CORREOS ETERNOS PWA
 // PIN DE ACCESO: 1515
-// API Key FreeCustom ACTUALIZADA
+// FREECUSTOM CORREGIDO
 // ============================================================
 const PIN = '1515';
 const STORAGE_KEY = 'luisr_pwa';
@@ -405,6 +405,7 @@ async function enviarAGmail(email, idx) {
     return false;
 }
 
+// ========== FREECUSTOM CORREGIDO ==========
 async function generateFreecustom() {
     if (!FREECUSTOM_API_KEY) {
         showToast('❌ API Key de FreeCustom no configurada', true);
@@ -413,22 +414,34 @@ async function generateFreecustom() {
     try {
         const res = await fetch('https://api.freecustom.email/v1/inboxes', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-API-Key': FREECUSTOM_API_KEY },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-API-Key': FREECUSTOM_API_KEY 
+            },
             body: JSON.stringify({})
         });
+        
+        if (!res.ok) {
+            const errorData = await res.json();
+            throw new Error(errorData.message || 'Error creating inbox');
+        }
+        
         const data = await res.json();
-        if (data.email) {
-            currentEmail = data.email;
-            currentLogin = data.email.split('@')[0];
-            currentDomain = data.email.split('@')[1];
-            freecustomInboxId = data.id;
+        const email = data.email || data.address;
+        
+        if (email) {
+            currentEmail = email;
+            currentLogin = email.split('@')[0];
+            currentDomain = email.split('@')[1];
+            freecustomInboxId = data.id || data.inbox_id;
             emailCreatedAt = Date.now();
             return true;
         } else {
-            throw new Error(data.message || 'Error creating inbox');
+            throw new Error('No se recibió email en la respuesta');
         }
     } catch(e) {
-        showToast('❌ Error con FreeCustom. API Key inválida o expirada', true);
+        console.error('FreeCustom error:', e);
+        showToast('❌ Error con FreeCustom: ' + e.message, true);
         return false;
     }
 }
@@ -439,9 +452,13 @@ async function checkFreecustom() {
         const res = await fetch(`https://api.freecustom.email/v1/inboxes/${freecustomInboxId}/messages`, {
             headers: { 'X-API-Key': FREECUSTOM_API_KEY }
         });
+        
+        if (!res.ok) return [];
+        
         const data = await res.json();
-        return data.messages || [];
+        return data.messages || data.data?.messages || [];
     } catch(e) {
+        console.error('Freecustom check error:', e);
         return [];
     }
 }
@@ -452,12 +469,23 @@ async function readFreecustom(msgId) {
         const res = await fetch(`https://api.freecustom.email/v1/inboxes/${freecustomInboxId}/messages/${msgId}`, {
             headers: { 'X-API-Key': FREECUSTOM_API_KEY }
         });
-        return await res.json();
+        
+        if (!res.ok) return null;
+        
+        const data = await res.json();
+        return {
+            from: data.from || data.sender || 'Desconocido',
+            subject: data.subject || 'Sin asunto',
+            textBody: data.body || data.text || data.textBody || '',
+            htmlBody: data.html || ''
+        };
     } catch(e) {
+        console.error('Freecustom read error:', e);
         return null;
     }
 }
 
+// ========== OTROS PROVEEDORES ==========
 async function generate1secmail() {
     let chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     let n = '';
@@ -715,8 +743,6 @@ function renderCurrentTab() {
     if(pageItems.length === 0) {
         if(!currentEmail) {
             container.innerHTML = '<div class="empty">📭 Genera un correo primero</div>';
-        } else if(currentProvider === 'freecustom' && !FREECUSTOM_API_KEY) {
-            container.innerHTML = '<div class="empty">⚠️ Configura tu API Key de FreeCustom en Ajustes</div>';
         } else {
             container.innerHTML = '<div class="empty">📭 Vacío - Esperando correos...</div>';
         }
