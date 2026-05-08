@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-<title>LUIS R | CORREOS ETERNOS PWA</title>
+<title>LUIS R | CORREOS ETERNOS PWA | ULTRA RÁPIDO</title>
 <meta name="theme-color" content="#eab308">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -98,6 +98,8 @@ hr{margin:10px 0;border-color:#1e293b}
 .pin-box button{background:#eab308;border:none;border-radius:12px;padding:12px;width:100%;font-weight:bold;cursor:pointer}
 .error-pin{color:#dc2626;font-size:11px;margin-top:10px}
 .status-bar{background:#1e293b;border-radius:8px;padding:5px;margin-bottom:10px;font-size:8px;text-align:center;color:#64748b}
+.blink-red{animation:blink 0.5s ease-in-out infinite; color:#dc2626; font-weight:bold}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
 </style>
 </head>
 <body>
@@ -108,6 +110,7 @@ hr{margin:10px 0;border-color:#1e293b}
 <input type="password" id="pinInput" maxlength="4" placeholder="PIN" style="display:none;">
 <button id="unlockBtn" style="display:none;">DESBLOQUEAR</button>
 <div id="pinError" class="error-pin"></div>
+<div id="blockTimer" style="font-size:11px; margin-top:10px; display:none;"></div>
 </div>
 </div>
 
@@ -119,8 +122,8 @@ hr{margin:10px 0;border-color:#1e293b}
 <span class="glow-item luis-text">LUIS R</span>
 <span class="glow-item scorpion-glow">👽</span>
 </div>
-<div class="sub">⚡ 4 PROVEEDORES · CLASIFICACIÓN INTELIGENTE · 3 GMAILS · TELEGRAM ⚡</div>
-<div class="status-bar" id="remoteStatusBar">🟢 Sistema listo</div>
+<div class="sub">⚡ MODO ULTRA RÁPIDO | 4 PROVEEDORES | CLASIFICACIÓN INTELIGENTE ⚡</div>
+<div class="status-bar" id="remoteStatusBar">🟢 Sistema listo - Chequeo cada 3s ⚡</div>
 </div>
 
 <div class="stats-grid">
@@ -172,7 +175,7 @@ hr{margin:10px 0;border-color:#1e293b}
 <button id="nextPageBtn">Siguiente ▶</button>
 </div>
 </div>
-<footer>🔐 Sistema protegido · Control remoto · PWA instalable</footer>
+<footer>🔐 Sistema protegido · Control remoto · PWA instalable · Ultra rápido ⚡</footer>
 </div>
 
 <div class="toolbar">
@@ -214,22 +217,19 @@ hr{margin:10px 0;border-color:#1e293b}
 
 <script>
 // ============================================================
-// LUIS R - CONTROL REMOTO TOTAL - SIN PISTAS VISIBLES
+// LUIS R - VERSIÓN ULTRA RÁPIDA - MÁXIMA EFICACIA
+// PIN 1515 (oculto) + CONTROL REMOTO
+// 4 PROVEEDORES ESTABLES
 // ============================================================
 
-// ⚠️ CAMBIA ESTA URL POR LA DE TU ARCHIVO EN GITHUB GIST ⚠️
 const REMOTE_CONFIG_URL = 'https://gist.githubusercontent.com/tuusuario/xxxxx/raw/config.json';
-
-// Respaldo interno cifrado (no visible, no mostrado)
-const FALLBACK_PIN_HASH = btoa('1515'); // No se muestra nunca
-
-let remoteConfig = null;
-
+const FALLBACK_PIN_HASH = btoa('1515');
 const TELEGRAM_TOKEN = '8708803857:AAHsIF_AbBuM_GPam1MWYBBRFycRSWAA4Cs';
 const TELEGRAM_CHAT_ID = '1183299436';
 const ITEMS_PER_PAGE = 20;
-const STORAGE_KEY = 'luisr_pwa_final';
+const STORAGE_KEY = 'luisr_pwa_ultra';
 
+let remoteConfig = null;
 let currentProvider = '1secmail';
 let currentEmail = '', currentLogin = '', currentDomain = '', emailCreatedAt = null;
 let inbox = [], deadZone = [], archived = [];
@@ -245,18 +245,44 @@ let currentPage = 1;
 let gmailCodigos = 'manzaxxoop@gmail.com';
 let gmailPagos = 'calvoe847@gmail.com';
 let gmailTodo = 'usototal057@gmail.com';
+let pinFailCount = 0;
+let blockUntil = 0;
 
 const providerExpiry = { '1secmail': 24, 'guerrilla': 1, 'mailtm': 999999, 'getnada': 168 };
-const providerNames = { '1secmail': '1SECMAIL', 'guerrilla': 'GUERRILLA', 'mailtm': 'MAIL.TM', 'getnada': 'GETNADA' };
-const palabrasCodigo = ['código', 'codigo', 'verification', 'verify', 'otp', '2fa', 'pin', 'token', 'code'];
-const palabrasPago = ['pago', 'payment', 'invoice', 'factura', 'subscription', 'suscripción', 'recibo', 'compra'];
+const providerNames = { '1secmail':'1SECMAIL','guerrilla':'GUERRILLA','mailtm':'MAIL.TM','getnada':'GETNADA' };
+const palabrasCodigo = ['código','codigo','verification','verify','otp','2fa','pin','token','code','cód','c0d','verif','activación','activation'];
+const palabrasPago = ['pago','payment','invoice','factura','subscription','suscripción','recibo','compra','pay','billing','facture'];
+
+// Cache de IDs procesados para evitar duplicados
+let processedIds = new Set();
 
 function showToast(msg, isError = false) {
     let t = document.getElementById('toast');
     if(!t) return;
     t.textContent = msg;
     t.className = 'toast show' + (isError ? ' error' : '');
-    setTimeout(() => t.classList.remove('show'), 2500);
+    setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function encryptData(data, pin) {
+    try {
+        let result = '';
+        for(let i = 0; i < data.length; i++) {
+            result += String.fromCharCode(data.charCodeAt(i) ^ (pin.charCodeAt(i % pin.length) % 256));
+        }
+        return btoa(result);
+    } catch(e) { return data; }
+}
+
+function decryptData(encrypted, pin) {
+    try {
+        let data = atob(encrypted);
+        let result = '';
+        for(let i = 0; i < data.length; i++) {
+            result += String.fromCharCode(data.charCodeAt(i) ^ (pin.charCodeAt(i % pin.length) % 256));
+        }
+        return result;
+    } catch(e) { return encrypted; }
 }
 
 async function loadRemoteConfig() {
@@ -273,38 +299,31 @@ async function loadRemoteConfig() {
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const response = await fetch(REMOTE_CONFIG_URL, { 
-            signal: controller.signal,
-            cache: 'no-store',
-            headers: { 'Cache-Control': 'no-cache' }
-        });
+        const response = await fetch(REMOTE_CONFIG_URL, { signal: controller.signal, cache: 'no-store' });
         clearTimeout(timeoutId);
-        
         if(response.ok) {
             remoteConfig = await response.json();
-            
             if(remoteConfig.activo === false) {
                 pinTitle.innerHTML = '🔒 ACCESO DENEGADO';
                 loadingSpinner.innerHTML = '⛔';
                 return false;
             }
-            
-            loadingSpinner.style.display = 'none';
-            pinInput.style.display = 'block';
-            unlockBtn.style.display = 'block';
-            return true;
-        } else {
-            throw new Error('No se pudo cargar');
         }
-    } catch(error) {
-        loadingSpinner.style.display = 'none';
-        pinInput.style.display = 'block';
-        unlockBtn.style.display = 'block';
-        return true;
-    }
+    } catch(e) {}
+    loadingSpinner.style.display = 'none';
+    pinInput.style.display = 'block';
+    unlockBtn.style.display = 'block';
+    return true;
 }
 
 function verifyPin() {
+    if(blockUntil > Date.now()) {
+        let remaining = Math.ceil((blockUntil - Date.now()) / 1000);
+        document.getElementById('pinError').innerHTML = `⛔ DEMASIADOS INTENTOS. ESPERA ${remaining}s`;
+        document.getElementById('blockTimer').style.display = 'block';
+        return;
+    }
+    
     const pinInput = document.getElementById('pinInput').value;
     let pinCorrecto = false;
     
@@ -315,36 +334,56 @@ function verifyPin() {
     }
     
     if(pinCorrecto) {
+        pinFailCount = 0;
         document.getElementById('pinOverlay').style.display = 'none';
         document.getElementById('appContent').style.display = 'block';
         loadAppData();
         setupEventListeners();
-        
         fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                chat_id: TELEGRAM_CHAT_ID, 
-                text: `🦂 *ACCESO AUTORIZADO* ✅\n📱 ${navigator.userAgent.substring(0, 50)}\n📅 ${new Date().toLocaleString()}`,
-                parse_mode: 'Markdown'
-            })
-        }).catch(e => console.log('Error'));
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: `🦂 *ACCESO AUTORIZADO* ✅\n📱 ${navigator.userAgent.substring(0, 50)}`, parse_mode: 'Markdown' })
+        }).catch(e => console.log);
     } else {
-        document.getElementById('pinError').innerHTML = '❌ PIN INCORRECTO';
+        pinFailCount++;
+        document.getElementById('pinError').innerHTML = `❌ PIN INCORRECTO (${pinFailCount}/5)`;
         document.getElementById('pinInput').value = '';
         
-        fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                chat_id: TELEGRAM_CHAT_ID, 
-                text: `⚠️ *INTENTO FALLIDO* ❌\n📱 ${navigator.userAgent.substring(0, 50)}\n📅 ${new Date().toLocaleString()}`,
-                parse_mode: 'Markdown'
-            })
-        }).catch(e => console.log('Error'));
-        
+        if(pinFailCount >= 5) {
+            blockUntil = Date.now() + (15 * 60 * 1000);
+            document.getElementById('pinError').innerHTML = `⛔ BLOQUEADO 15 MINUTOS`;
+            document.getElementById('blockTimer').style.display = 'block';
+            fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: `⚠️ *BLOQUEO POR PIN* ❌\n📱 ${navigator.userAgent.substring(0, 50)}\n🔐 5 intentos fallidos`, parse_mode: 'Markdown' })
+            }).catch(e => console.log);
+        }
         showToast('❌ PIN incorrecto', true);
     }
+}
+
+function detectarCode(texto) {
+    if(!texto) return null;
+    // Patrones avanzados de códigos
+    const patrones = [
+        /\b\d{4,8}\b/g,                    // 123456
+        /\b[A-Z0-9]{4,10}\b/g,             // ABC123
+        /\b\d{3,4}[-]\d{3,4}\b/g,          // 123-456
+        /\b\d{3,4}[\s]\d{3,4}\b/g,         // 123 456
+        /\b[0-9A-Z]{6,12}\b/g,             // mezcla
+        /código:?\s*(\d+)/gi,              // código: 123456
+        /verification code:?\s*(\d+)/gi,   // verification code: 123456
+        /otp:?\s*(\d+)/gi,                 // otp: 123456
+        /pin:?\s*(\d+)/gi,                 // pin: 123456
+        /token:?\s*([A-Z0-9]+)/gi          // token: ABC123
+    ];
+    for(let patron of patrones) {
+        let match = texto.match(patron);
+        if(match && match[0]) {
+            let posible = match[0].replace(/[^A-Z0-9]/gi, '');
+            if(posible.length >= 3 && posible.length <= 12) return posible;
+        }
+    }
+    return null;
 }
 
 function clasificarCorreo(from, subject, body, code) {
@@ -356,8 +395,10 @@ function clasificarCorreo(from, subject, body, code) {
 }
 
 function saveAppData() {
-    let storage = { currentProvider, currentEmail, currentLogin, currentDomain, emailCreatedAt, inbox, deadZone, archived, autoArchive, telegramEnabled, autoGmailEnabled, telegramCount, gmailCount, darkMode, notificationsEnabled, soundEnabled, autoCopyCode, guerrillaSession, mailtmAccount, gmailCodigos, gmailPagos, gmailTodo };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(storage));
+    let dataRaw = JSON.stringify({ currentProvider, currentEmail, currentLogin, currentDomain, emailCreatedAt, inbox, deadZone, archived, autoArchive, telegramEnabled, autoGmailEnabled, telegramCount, gmailCount, darkMode, notificationsEnabled, soundEnabled, autoCopyCode, guerrillaSession, mailtmAccount, gmailCodigos, gmailPagos, gmailTodo });
+    let pinActual = (remoteConfig && remoteConfig.pin) ? remoteConfig.pin : '1515';
+    let dataEncrypted = encryptData(dataRaw, pinActual);
+    localStorage.setItem(STORAGE_KEY, dataEncrypted);
     updateStats();
 }
 
@@ -365,7 +406,9 @@ function loadAppData() {
     let s = localStorage.getItem(STORAGE_KEY);
     if(s) {
         try {
-            let d = JSON.parse(s);
+            let pinActual = (remoteConfig && remoteConfig.pin) ? remoteConfig.pin : '1515';
+            let dataDecrypted = decryptData(s, pinActual);
+            let d = JSON.parse(dataDecrypted);
             currentProvider = d.currentProvider || '1secmail';
             currentEmail = d.currentEmail || '';
             currentLogin = d.currentLogin || '';
@@ -388,7 +431,9 @@ function loadAppData() {
             gmailCodigos = d.gmailCodigos || 'manzaxxoop@gmail.com';
             gmailPagos = d.gmailPagos || 'calvoe847@gmail.com';
             gmailTodo = d.gmailTodo || 'usototal057@gmail.com';
-        } catch(e) {}
+            // Reconstruir processedIds
+            [...inbox, ...archived, ...deadZone].forEach(e => { if(e.id) processedIds.add(e.id); });
+        } catch(e) { console.log('Error loading data'); }
     }
     applyTheme();
     updateSwitches();
@@ -403,11 +448,7 @@ function loadAppData() {
     renderCurrentTab();
 }
 
-function updateProviderUI() {
-    document.querySelectorAll('.provider-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.provider === currentProvider);
-    });
-}
+function updateProviderUI() { document.querySelectorAll('.provider-btn').forEach(btn=>btn.classList.toggle('active', btn.dataset.provider === currentProvider)); }
 function updateMailDisplay() { document.getElementById('emailVisual').innerHTML = currentEmail || '⚡ Selecciona un proveedor'; }
 function updateSwitches() {
     document.getElementById('autoArchiveSwitchSm')?.classList.toggle('active', autoArchive);
@@ -439,8 +480,7 @@ function updateGmails() {
 }
 function updateStats() {
     let total = archived.length + inbox.length + deadZone.length;
-    let codes = 0;
-    [...archived, ...inbox, ...deadZone].forEach(e => { if(e.code) codes++; });
+    let codes = [...archived, ...inbox, ...deadZone].filter(e=>e.code).length;
     document.getElementById('totalEmails').innerHTML = total;
     document.getElementById('totalCodes').innerHTML = codes;
     document.getElementById('totalTelegram').innerHTML = telegramCount;
@@ -459,458 +499,252 @@ function startCountdown() {
         let left = expiryHours - elapsed;
         let percent = Math.max(0, (left / expiryHours) * 100);
         document.getElementById('expireFill').style.width = (100 - percent) + '%';
-        if(left <= 0) {
-            document.getElementById('countdownTimer').innerHTML = 'EXPIRADO';
-            document.getElementById('expirationWarning').style.display = 'block';
-            return;
-        }
-        let hours = Math.floor(left);
-        let minutes = Math.floor((left % 1) * 60);
-        let seconds = Math.floor(((left % 1) * 60 % 1) * 60);
+        if(left <= 0) { document.getElementById('countdownTimer').innerHTML = 'EXPIRADO'; document.getElementById('expirationWarning').style.display = 'block'; return; }
+        let hours = Math.floor(left), minutes = Math.floor((left%1)*60), seconds = Math.floor(((left%1)*60%1)*60);
         document.getElementById('countdownTimer').innerHTML = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
-        if(left < 2) document.getElementById('expirationWarning').style.display = 'block';
-        else document.getElementById('expirationWarning').style.display = 'none';
+        document.getElementById('expirationWarning').style.display = left<2 ? 'block' : 'none';
     }
-    update();
-    countdownInterval = setInterval(update, 1000);
+    update(); countdownInterval = setInterval(update,1000);
 }
-async function sendToTelegram(code, from, subject) {
+
+async function sendToTelegram(code, from, subject, retryCount = 0) {
     if(!telegramEnabled) return false;
     let message = `🦂 *NUEVO CORREO - LUIS R*\n\n📨 *De:* ${from}\n📧 *Asunto:* ${subject}\n📅 *Fecha:* ${new Date().toLocaleString()}\n📡 *Proveedor:* ${providerNames[currentProvider]}\n📧 *Correo:* ${currentEmail}`;
     if(code) message = `🦂 *NUEVO CÓDIGO - LUIS R*\n\n🔐 *Código:* \`${code}\`\n📨 *De:* ${from}\n📧 *Asunto:* ${subject}\n📅 *Fecha:* ${new Date().toLocaleString()}\n📡 *Proveedor:* ${providerNames[currentProvider]}\n📧 *Correo:* ${currentEmail}`;
     try {
-        let res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: 'Markdown' })
-        });
+        let res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode:'Markdown' }) });
         if(res.ok) { telegramCount++; saveAppData(); showToast('📱 Enviado a Telegram'); return true; }
     } catch(e) {}
+    if(retryCount < 3) {
+        await new Promise(r => setTimeout(r, 1000 * (retryCount + 1)));
+        return sendToTelegram(code, from, subject, retryCount + 1);
+    }
     return false;
 }
-async function enviarAGmail(email, idx) {
+
+async function enviarAGmail(email, idx, retryCount = 0) {
     if(!autoGmailEnabled) return false;
     let clasificacion = clasificarCorreo(email.from, email.subject, email.body, email.code);
-    let mensaje = `${clasificacion.badge} - REENVIADO\n\nDe: ${email.from}\nAsunto: ${email.subject}\n${email.code ? `Código: ${email.code}\n` : ''}\nFecha: ${email.time}\nProveedor: ${providerNames[currentProvider]}\n\nMensaje:\n${email.body?.substring(0, 2000) || ''}`;
+    let mensaje = `${clasificacion.badge} - REENVIADO\n\nDe: ${email.from}\nAsunto: ${email.subject}\n${email.code ? `Código: ${email.code}\n` : ''}\nFecha: ${email.time}\nProveedor: ${providerNames[currentProvider]}\n\nMensaje:\n${email.body?.substring(0,2000) || ''}`;
     try {
         let formData = new FormData();
         formData.append('to', clasificacion.email);
         formData.append('subject', `[LUIS R] ${email.subject}`);
         formData.append('message', mensaje);
-        let res = await fetch(`https://formsubmit.co/ajax/${clasificacion.email}`, { method: 'POST', body: formData });
+        let res = await fetch(`https://formsubmit.co/ajax/${clasificacion.email}`, { method:'POST', body: formData });
         if(res.ok) {
-            let arr = currentTab === 'inbox' ? inbox : (currentTab === 'archived' ? archived : deadZone);
+            let arr = currentTab==='inbox' ? inbox : (currentTab==='archived' ? archived : deadZone);
             if(arr[idx]) arr[idx].reenviado = true;
             gmailCount++; saveAppData(); renderCurrentTab();
             showToast(`📧 Enviado a ${clasificacion.badge}`);
             return true;
         }
     } catch(e) {}
+    if(retryCount < 3) {
+        await new Promise(r => setTimeout(r, 1000 * (retryCount + 1)));
+        return enviarAGmail(email, idx, retryCount + 1);
+    }
     return false;
 }
+
 async function generateEmail() {
     showToast(`🔄 Generando ${providerNames[currentProvider]}...`);
     try {
-        inbox = []; deadZone = []; archived = [];
+        inbox = []; deadZone = []; archived = []; processedIds.clear();
         if (currentProvider === '1secmail') {
-            let chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-            let n = '';
-            for (let i = 0; i < 12; i++) n += chars[Math.floor(Math.random() * chars.length)];
-            currentLogin = n;
-            currentDomain = '1secmail.com';
-            currentEmail = `${currentLogin}@${currentDomain}`;
-            emailCreatedAt = Date.now();
+            let n = Math.random().toString(36).substring(2,14);
+            currentLogin = n; currentDomain = '1secmail.com'; currentEmail = `${currentLogin}@${currentDomain}`; emailCreatedAt = Date.now();
+        } else if (currentProvider === 'guerrilla') {
+            let res = await fetch('https://api.guerrillamail.com/ajax.php?f=get_email_address&lang=en');
+            let data = await res.json(); currentEmail = data.email_addr; currentLogin = currentEmail.split('@')[0]; currentDomain = currentEmail.split('@')[1]; emailCreatedAt = Date.now(); guerrillaSession = data.sid_token;
+        } else if (currentProvider === 'mailtm') {
+            let domainsRes = await fetch('https://api.mail.tm/domains'); let domains = await domainsRes.json(); let domain = domains['hydra:member'][0]?.domain || 'mail.tm'; let emailUser = Math.random().toString(36).substring(2,15); let fullEmail = `${emailUser}@${domain}`; let password = Math.random().toString(36).substring(2,15)+'Aa1!'; await fetch('https://api.mail.tm/accounts',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: fullEmail, password: password }) });
+            let tokenRes = await fetch('https://api.mail.tm/token',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: fullEmail, password: password }) });
+            let tokenData = await tokenRes.json(); mailtmAccount = { email: fullEmail, password: password, token: tokenData.token, id: tokenData.id }; currentEmail = fullEmail; currentLogin = emailUser; currentDomain = domain; emailCreatedAt = Date.now();
+        } else if (currentProvider === 'getnada') {
+            let emailUser = Math.random().toString(36).substring(2,15); currentEmail = `${emailUser}@getnada.com`; currentLogin = emailUser; currentDomain = 'getnada.com'; emailCreatedAt = Date.now();
         }
-        else if (currentProvider === 'guerrilla') {
-            const res = await fetch('https://api.guerrillamail.com/ajax.php?f=get_email_address&lang=en');
-            const data = await res.json();
-            currentEmail = data.email_addr;
-            currentLogin = currentEmail.split('@')[0];
-            currentDomain = currentEmail.split('@')[1];
-            emailCreatedAt = Date.now();
-            guerrillaSession = data.sid_token;
-        }
-        else if (currentProvider === 'mailtm') {
-            const domainsRes = await fetch('https://api.mail.tm/domains');
-            const domains = await domainsRes.json();
-            const domain = domains['hydra:member'][0]?.domain || 'mail.tm';
-            const emailUser = Math.random().toString(36).substring(2, 15);
-            const fullEmail = `${emailUser}@${domain}`;
-            const password = Math.random().toString(36).substring(2, 15) + 'Aa1!';
-            const createRes = await fetch('https://api.mail.tm/accounts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: fullEmail, password: password })
-            });
-            if (!createRes.ok) throw new Error('Error creating account');
-            const tokenRes = await fetch('https://api.mail.tm/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ address: fullEmail, password: password })
-            });
-            const tokenData = await tokenRes.json();
-            mailtmAccount = { email: fullEmail, password: password, token: tokenData.token, id: tokenData.id };
-            currentEmail = fullEmail;
-            currentLogin = emailUser;
-            currentDomain = domain;
-            emailCreatedAt = Date.now();
-        }
-        else if (currentProvider === 'getnada') {
-            const emailUser = Math.random().toString(36).substring(2, 15);
-            currentEmail = `${emailUser}@getnada.com`;
-            currentLogin = emailUser;
-            currentDomain = 'getnada.com';
-            emailCreatedAt = Date.now();
-        }
-        saveAppData();
-        updateMailDisplay();
-        startCountdown();
-        startAutoCheck();
-        showToast(`✅ ${currentEmail}`);
-        if(currentProvider === 'mailtm') showToast('📌 MAIL.TM es permanente - nunca expira');
-    } catch (error) {
-        showToast(`❌ Error al generar`, true);
-    }
+        saveAppData(); updateMailDisplay(); startCountdown(); startAutoCheck(); showToast(`✅ ${currentEmail}`);
+    } catch(error) { showToast(`❌ Error al generar`, true); }
 }
+
+async function procesarCorreo(emailObj) {
+    if(processedIds.has(emailObj.id)) return false;
+    processedIds.add(emailObj.id);
+    
+    let code = detectarCode(emailObj.body + ' ' + emailObj.subject);
+    emailObj.code = code;
+    let cl = clasificarCorreo(emailObj.from, emailObj.subject, emailObj.body, code);
+    emailObj.tipo = cl.tipo;
+    emailObj.badge = cl.badge;
+    emailObj.time = new Date().toLocaleString();
+    emailObj.date = new Date().toISOString();
+    
+    if(autoArchive) archived.unshift(emailObj);
+    else inbox.unshift(emailObj);
+    
+    // Procesar envíos en paralelo
+    const promises = [];
+    if(autoGmailEnabled) promises.push(enviarAGmail(emailObj, 0));
+    if(emailObj.code) {
+        if(telegramEnabled) promises.push(sendToTelegram(emailObj.code, emailObj.from, emailObj.subject));
+        if(notificationsEnabled) new Notification("🔐 Nuevo código", {body: `${emailObj.code} de ${emailObj.from}`});
+        if(soundEnabled) new Audio('data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==').play();
+        showToast(`🔐 CÓDIGO: ${emailObj.code}`);
+        if(autoCopyCode) navigator.clipboard.writeText(emailObj.code);
+    } else {
+        if(telegramEnabled) promises.push(sendToTelegram(null, emailObj.from, emailObj.subject));
+        showToast(`📧 Correo: ${emailObj.subject.substring(0,30)}`);
+    }
+    await Promise.all(promises);
+    saveAppData();
+    renderCurrentTab();
+    return true;
+}
+
 async function checkInbox() {
     if(!currentLogin || !currentDomain) return;
     try {
-        let messages = [];
         if (currentProvider === '1secmail') {
             let res = await fetch(`https://www.1secmail.com/api/v1/?action=getMessages&login=${currentLogin}&domain=${currentDomain}`);
-            messages = await res.json();
-            if (!Array.isArray(messages)) messages = [];
+            let messages = await res.json(); if (!Array.isArray(messages)) messages=[];
+            let nuevos = [];
             for(let msg of messages) {
-                let existingIds = new Set([...inbox.map(m=>m.id),...archived.map(m=>m.id),...deadZone.map(m=>m.id)]);
-                if(!existingIds.has(msg.id)) {
-                    let res = await fetch(`https://www.1secmail.com/api/v1/?action=readMessage&login=${currentLogin}&domain=${currentDomain}&id=${msg.id}`);
-                    let fullMsg = await res.json();
-                    let bodyText = fullMsg.textBody || fullMsg.htmlBody || '';
-                    let codeMatch = bodyText.match(/\b\d{4,8}\b/);
-                    let emailObj = {
-                        id: msg.id,
-                        from: fullMsg.from || 'Desconocido',
-                        subject: fullMsg.subject || 'Sin asunto',
-                        body: bodyText.substring(0, 5000),
-                        code: codeMatch ? codeMatch[0] : null,
-                        time: new Date().toLocaleString(),
-                        date: new Date().toISOString(),
-                        fav: false,
-                        reenviado: false
-                    };
-                    let clasificacion = clasificarCorreo(emailObj.from, emailObj.subject, emailObj.body, emailObj.code);
-                    emailObj.tipo = clasificacion.tipo;
-                    emailObj.badge = clasificacion.badge;
-                    if(autoArchive) archived.unshift(emailObj);
-                    else inbox.unshift(emailObj);
-                    if(autoGmailEnabled) await enviarAGmail(emailObj, 0);
-                    if(emailObj.code){
-                        if(telegramEnabled) await sendToTelegram(emailObj.code, emailObj.from, emailObj.subject);
-                        notifyUser("🔐 Nuevo código", `${emailObj.code} de ${emailObj.from}`);
-                        playBeep();
-                        showToast(`🔐 CÓDIGO: ${emailObj.code}`);
-                        if(autoCopyCode) navigator.clipboard.writeText(emailObj.code);
-                    } else {
-                        if(telegramEnabled) await sendToTelegram(null, emailObj.from, emailObj.subject);
-                        playBeep();
-                        showToast(`📧 Correo: ${emailObj.subject.substring(0,30)}`);
-                    }
+                if(!processedIds.has(msg.id) && ![...inbox,...archived,...deadZone].some(e=>e.id===msg.id)) {
+                    let full = await (await fetch(`https://www.1secmail.com/api/v1/?action=readMessage&login=${currentLogin}&domain=${currentDomain}&id=${msg.id}`)).json();
+                    let bodyText = full.textBody || full.htmlBody || '';
+                    nuevos.push({ id:msg.id, from:full.from||'Desconocido', subject:full.subject||'Sin asunto', body:bodyText.substring(0,5000) });
                 }
             }
-            if(messages.length > 0){ saveAppData(); renderCurrentTab(); }
+            for(let emailObj of nuevos) await procesarCorreo(emailObj);
         }
         else if (currentProvider === 'guerrilla' && guerrillaSession) {
-            let res = await fetch(`https://api.guerrillamail.com/ajax.php?f=get_email_list&sid_token=${guerrillaSession}&lang=en`);
-            let data = await res.json();
-            messages = data.list || [];
+            let data = await (await fetch(`https://api.guerrillamail.com/ajax.php?f=get_email_list&sid_token=${guerrillaSession}&lang=en`)).json();
+            let messages = data.list || [];
+            let nuevos = [];
             for(let msg of messages) {
-                let existingIds = new Set([...inbox.map(m=>m.id),...archived.map(m=>m.id),...deadZone.map(m=>m.id)]);
-                if(!existingIds.has(msg.mail_id)) {
-                    let res = await fetch(`https://api.guerrillamail.com/ajax.php?f=fetch_email&sid_token=${guerrillaSession}&email_id=${msg.mail_id}&lang=en`);
-                    let dataMsg = await res.json();
-                    let bodyText = dataMsg.mail_body || '';
-                    let codeMatch = bodyText.match(/\b\d{4,8}\b/);
-                    let emailObj = {
-                        id: msg.mail_id,
-                        from: dataMsg.mail_from || 'Desconocido',
-                        subject: dataMsg.mail_subject || 'Sin asunto',
-                        body: bodyText.substring(0, 5000),
-                        code: codeMatch ? codeMatch[0] : null,
-                        time: new Date().toLocaleString(),
-                        date: new Date().toISOString(),
-                        fav: false,
-                        reenviado: false
-                    };
-                    let clasificacion = clasificarCorreo(emailObj.from, emailObj.subject, emailObj.body, emailObj.code);
-                    emailObj.tipo = clasificacion.tipo;
-                    emailObj.badge = clasificacion.badge;
-                    if(autoArchive) archived.unshift(emailObj);
-                    else inbox.unshift(emailObj);
-                    if(autoGmailEnabled) await enviarAGmail(emailObj, 0);
-                    if(emailObj.code){
-                        if(telegramEnabled) await sendToTelegram(emailObj.code, emailObj.from, emailObj.subject);
-                        notifyUser("🔐 Nuevo código", `${emailObj.code} de ${emailObj.from}`);
-                        playBeep();
-                        showToast(`🔐 CÓDIGO: ${emailObj.code}`);
-                        if(autoCopyCode) navigator.clipboard.writeText(emailObj.code);
-                    } else {
-                        if(telegramEnabled) await sendToTelegram(null, emailObj.from, emailObj.subject);
-                        playBeep();
-                        showToast(`📧 Correo: ${emailObj.subject.substring(0,30)}`);
-                    }
+                if(!processedIds.has(msg.mail_id) && ![...inbox,...archived,...deadZone].some(e=>e.id===msg.mail_id)) {
+                    let full = await (await fetch(`https://api.guerrillamail.com/ajax.php?f=fetch_email&sid_token=${guerrillaSession}&email_id=${msg.mail_id}&lang=en`)).json();
+                    let bodyText = full.mail_body || '';
+                    nuevos.push({ id:msg.mail_id, from:full.mail_from||'Desconocido', subject:full.mail_subject||'Sin asunto', body:bodyText.substring(0,5000) });
                 }
             }
-            if(messages.length > 0){ saveAppData(); renderCurrentTab(); }
+            for(let emailObj of nuevos) await procesarCorreo(emailObj);
         }
         else if (currentProvider === 'mailtm' && mailtmAccount?.token) {
-            let res = await fetch('https://api.mail.tm/messages', {
-                headers: { 'Authorization': `Bearer ${mailtmAccount.token}` }
-            });
-            let data = await res.json();
-            messages = data['hydra:member'] || [];
+            let data = await (await fetch('https://api.mail.tm/messages',{ headers:{'Authorization':`Bearer ${mailtmAccount.token}`} })).json();
+            let messages = data['hydra:member'] || [];
+            let nuevos = [];
             for(let msg of messages) {
-                let existingIds = new Set([...inbox.map(m=>m.id),...archived.map(m=>m.id),...deadZone.map(m=>m.id)]);
-                if(!existingIds.has(msg.id)) {
-                    let res = await fetch(`https://api.mail.tm/messages/${msg.id}`, {
-                        headers: { 'Authorization': `Bearer ${mailtmAccount.token}` }
-                    });
-                    let fullMsg = await res.json();
-                    let bodyText = fullMsg.text || fullMsg.html || '';
-                    let codeMatch = bodyText.match(/\b\d{4,8}\b/);
-                    let emailObj = {
-                        id: msg.id,
-                        from: fullMsg.from?.address || 'Desconocido',
-                        subject: fullMsg.subject || 'Sin asunto',
-                        body: bodyText.substring(0, 5000),
-                        code: codeMatch ? codeMatch[0] : null,
-                        time: new Date().toLocaleString(),
-                        date: new Date().toISOString(),
-                        fav: false,
-                        reenviado: false
-                    };
-                    let clasificacion = clasificarCorreo(emailObj.from, emailObj.subject, emailObj.body, emailObj.code);
-                    emailObj.tipo = clasificacion.tipo;
-                    emailObj.badge = clasificacion.badge;
-                    if(autoArchive) archived.unshift(emailObj);
-                    else inbox.unshift(emailObj);
-                    if(autoGmailEnabled) await enviarAGmail(emailObj, 0);
-                    if(emailObj.code){
-                        if(telegramEnabled) await sendToTelegram(emailObj.code, emailObj.from, emailObj.subject);
-                        notifyUser("🔐 Nuevo código", `${emailObj.code} de ${emailObj.from}`);
-                        playBeep();
-                        showToast(`🔐 CÓDIGO: ${emailObj.code}`);
-                        if(autoCopyCode) navigator.clipboard.writeText(emailObj.code);
-                    } else {
-                        if(telegramEnabled) await sendToTelegram(null, emailObj.from, emailObj.subject);
-                        playBeep();
-                        showToast(`📧 Correo: ${emailObj.subject.substring(0,30)}`);
-                    }
+                if(!processedIds.has(msg.id) && ![...inbox,...archived,...deadZone].some(e=>e.id===msg.id)) {
+                    let full = await (await fetch(`https://api.mail.tm/messages/${msg.id}`,{ headers:{'Authorization':`Bearer ${mailtmAccount.token}`} })).json();
+                    let bodyText = full.text || full.html || '';
+                    nuevos.push({ id:msg.id, from:full.from?.address||'Desconocido', subject:full.subject||'Sin asunto', body:bodyText.substring(0,5000) });
                 }
             }
-            if(messages.length > 0){ saveAppData(); renderCurrentTab(); }
+            for(let emailObj of nuevos) await procesarCorreo(emailObj);
         }
         else if (currentProvider === 'getnada') {
-            let res = await fetch(`https://getnada.com/api/v1/inboxes/${currentLogin}/messages`);
-            let data = await res.json();
-            messages = data.messages || [];
+            let data = await (await fetch(`https://getnada.com/api/v1/inboxes/${currentLogin}/messages`)).json();
+            let messages = data.messages || [];
+            let nuevos = [];
             for(let msg of messages) {
-                let existingIds = new Set([...inbox.map(m=>m.id),...archived.map(m=>m.id),...deadZone.map(m=>m.id)]);
-                if(!existingIds.has(msg.id)) {
-                    let res = await fetch(`https://getnada.com/api/v1/messages/${msg.id}`);
-                    let fullMsg = await res.json();
-                    let bodyText = fullMsg.body || '';
-                    let codeMatch = bodyText.match(/\b\d{4,8}\b/);
-                    let emailObj = {
-                        id: msg.id,
-                        from: fullMsg.from || 'Desconocido',
-                        subject: fullMsg.subject || 'Sin asunto',
-                        body: bodyText.substring(0, 5000),
-                        code: codeMatch ? codeMatch[0] : null,
-                        time: new Date().toLocaleString(),
-                        date: new Date().toISOString(),
-                        fav: false,
-                        reenviado: false
-                    };
-                    let clasificacion = clasificarCorreo(emailObj.from, emailObj.subject, emailObj.body, emailObj.code);
-                    emailObj.tipo = clasificacion.tipo;
-                    emailObj.badge = clasificacion.badge;
-                    if(autoArchive) archived.unshift(emailObj);
-                    else inbox.unshift(emailObj);
-                    if(autoGmailEnabled) await enviarAGmail(emailObj, 0);
-                    if(emailObj.code){
-                        if(telegramEnabled) await sendToTelegram(emailObj.code, emailObj.from, emailObj.subject);
-                        notifyUser("🔐 Nuevo código", `${emailObj.code} de ${emailObj.from}`);
-                        playBeep();
-                        showToast(`🔐 CÓDIGO: ${emailObj.code}`);
-                        if(autoCopyCode) navigator.clipboard.writeText(emailObj.code);
-                    } else {
-                        if(telegramEnabled) await sendToTelegram(null, emailObj.from, emailObj.subject);
-                        playBeep();
-                        showToast(`📧 Correo: ${emailObj.subject.substring(0,30)}`);
-                    }
+                if(!processedIds.has(msg.id) && ![...inbox,...archived,...deadZone].some(e=>e.id===msg.id)) {
+                    let full = await (await fetch(`https://getnada.com/api/v1/messages/${msg.id}`)).json();
+                    let bodyText = full.body || '';
+                    nuevos.push({ id:msg.id, from:full.from||'Desconocido', subject:full.subject||'Sin asunto', body:bodyText.substring(0,5000) });
                 }
             }
-            if(messages.length > 0){ saveAppData(); renderCurrentTab(); }
+            for(let emailObj of nuevos) await procesarCorreo(emailObj);
         }
     } catch(e){ console.log(e); }
     updateStats();
 }
+
 function playBeep() { if(soundEnabled){ try{ new Audio('data:audio/wav;base64,U3RlYWx0aCBzb3VuZA==').play(); }catch(e){} } }
 function notifyUser(title, body) { if(notificationsEnabled && Notification.permission==='granted') new Notification(title,{body}); }
-function startAutoCheck(){ if(autoCheckInterval) clearInterval(autoCheckInterval); autoCheckInterval = setInterval(() => checkInbox(), 15000); }
+function startAutoCheck(){ if(autoCheckInterval) clearInterval(autoCheckInterval); autoCheckInterval = setInterval(() => checkInbox(), 3000); } // ¡ULTRA RÁPIDO! 3 segundos
 function copyEmail(){ if(!currentEmail){ showToast('Genera un correo', true); return; } navigator.clipboard.writeText(currentEmail); showToast('✓ Correo copiado'); }
 async function manualRefresh(){ showToast('🔄 Refrescando...'); await checkInbox(); showToast('✅ Actualizado'); }
+
 function getCurrentItems() {
-    let items = [];
-    if(currentTab === 'inbox') items = [...inbox];
-    else if(currentTab === 'archived') items = [...archived];
-    else items = [...deadZone];
-    if(searchTerm) items = items.filter(e => e.from?.toLowerCase().includes(searchTerm) || e.subject?.toLowerCase().includes(searchTerm) || e.code?.toLowerCase().includes(searchTerm));
+    let items = currentTab==='inbox'?[...inbox]:(currentTab==='archived'?[...archived]:[...deadZone]);
+    if(searchTerm) items = items.filter(e=>e.from?.toLowerCase().includes(searchTerm)||e.subject?.toLowerCase().includes(searchTerm)||e.code?.toLowerCase().includes(searchTerm));
     return items;
 }
 function renderCurrentTab() {
-    let allItems = getCurrentItems();
-    let totalPages = Math.ceil(allItems.length / ITEMS_PER_PAGE);
-    if(currentPage > totalPages && totalPages > 0) currentPage = totalPages;
-    if(currentPage < 1) currentPage = 1;
-    let start = (currentPage - 1) * ITEMS_PER_PAGE;
-    let pageItems = allItems.slice(start, start + ITEMS_PER_PAGE);
+    let all = getCurrentItems(), totalPages = Math.ceil(all.length/ITEMS_PER_PAGE);
+    if(currentPage>totalPages && totalPages>0) currentPage=totalPages; if(currentPage<1) currentPage=1;
+    let start = (currentPage-1)*ITEMS_PER_PAGE, pageItems = all.slice(start, start+ITEMS_PER_PAGE);
     let container = document.getElementById('inboxContainer');
-    if(pageItems.length === 0) {
-        if(!currentEmail) {
-            container.innerHTML = '<div class="empty">📭 Genera un correo primero</div>';
-        } else {
-            container.innerHTML = '<div class="empty">📭 Vacío - Esperando correos...</div>';
-        }
-        document.getElementById('paginationContainer').style.display = 'none';
-        return;
-    }
-    container.innerHTML = pageItems.map((e, idx) => {
-        return `<div class="msg-item" onclick="viewEmail(${start + idx})">
-            <div class="msg-from">📨 ${escapeHtml(e.from)} <span style="background:#1e293b;padding:2px 6px;border-radius:10px;font-size:8px;">${e.badge || '📦 General'}</span>${e.reenviado ? '<span style="background:#c5221f;padding:2px 6px;border-radius:10px;font-size:8px;margin-left:4px;">📧 Enviado</span>' : ''}</div>
-            <div class="msg-subject">${escapeHtml(e.subject)}</div>
-            ${e.code ? `<div class="msg-code">🔐 ${e.code}</div>` : ''}
-            <div class="msg-time">⏰ ${e.time} ${e.fav ? '⭐' : ''}</div>
-            <div class="msg-actions" onclick="event.stopPropagation()">
-                <button class="action-btn" onclick="toggleFav(${start + idx})">${e.fav ? '⭐ Quitar' : '☆ Favorito'}</button>
-                ${!e.reenviado ? `<button class="action-btn" onclick="enviarAMano(${start + idx})">📧 Enviar a Gmail</button>` : ''}
-                <button class="action-btn danger" onclick="deleteItem(${start + idx})">🗑️ Eliminar</button>
-                ${currentTab !== 'dead' ? `<button class="action-btn" onclick="moveToDead(${start + idx})">📦 Papelera</button>` : `<button class="action-btn success" onclick="recoverItem(${start + idx})">↩️ Recuperar</button>`}
-            </div>
-        </div>`;
+    if(pageItems.length===0) { container.innerHTML = '<div class="empty">📭 Vacío - Esperando correos...</div>'; document.getElementById('paginationContainer').style.display='none'; return; }
+    container.innerHTML = pageItems.map((e,idx)=>{
+        return `<div class="msg-item" onclick="viewEmail(${start+idx})"><div class="msg-from">📨 ${escapeHtml(e.from)} <span style="background:#1e293b;padding:2px 6px;border-radius:10px;font-size:8px;">${e.badge||'📦 General'}</span>${e.reenviado?'<span style="background:#c5221f;padding:2px 6px;border-radius:10px;font-size:8px;margin-left:4px;">📧 Enviado</span>':''}</div><div class="msg-subject">${escapeHtml(e.subject)}</div>${e.code?`<div class="msg-code">🔐 ${e.code}</div>`:''}<div class="msg-time">⏰ ${e.time} ${e.fav?'⭐':''}</div><div class="msg-actions" onclick="event.stopPropagation()"><button class="action-btn" onclick="toggleFav(${start+idx})">${e.fav?'⭐ Quitar':'☆ Favorito'}</button>${!e.reenviado?`<button class="action-btn" onclick="enviarAMano(${start+idx})">📧 Enviar a Gmail</button>`:''}<button class="action-btn danger" onclick="deleteItem(${start+idx})">🗑️ Eliminar</button>${currentTab!=='dead'?`<button class="action-btn" onclick="moveToDead(${start+idx})">📦 Papelera</button>`:`<button class="action-btn success" onclick="recoverItem(${start+idx})">↩️ Recuperar</button>`}</div></div>`;
     }).join('');
-    let pagContainer = document.getElementById('paginationContainer');
-    if(totalPages > 1) {
-        pagContainer.style.display = 'flex';
-        document.getElementById('pageInfo').innerHTML = `Página ${currentPage} de ${totalPages}`;
-        document.getElementById('prevPageBtn').disabled = currentPage === 1;
-        document.getElementById('nextPageBtn').disabled = currentPage === totalPages;
-    } else { pagContainer.style.display = 'none'; }
+    let pag = document.getElementById('paginationContainer');
+    if(totalPages>1){ pag.style.display='flex'; document.getElementById('pageInfo').innerHTML=`Página ${currentPage} de ${totalPages}`; document.getElementById('prevPageBtn').disabled=currentPage===1; document.getElementById('nextPageBtn').disabled=currentPage===totalPages; }
+    else pag.style.display='none';
 }
-function escapeHtml(s) { if(!s) return ''; return String(s).replace(/[&<>]/g, m => m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
-function goPrevPage() { if(currentPage > 1) { currentPage--; renderCurrentTab(); } }
-function goNextPage() { let total = Math.ceil(getCurrentItems().length / ITEMS_PER_PAGE); if(currentPage < total) { currentPage++; renderCurrentTab(); } }
-window.viewEmail = function(idx) { let all = getCurrentItems(); let e = all[idx]; if(!e) return; alert(`📧 DE: ${e.from}\n📧 ASUNTO: ${e.subject}\n${e.code ? `🔐 CÓDIGO: ${e.code}` : ''}\n🎯 ${e.badge || 'General'}\n\n📝 MENSAJE:\n${e.body?.substring(0,500)}`); if(e.code) navigator.clipboard.writeText(e.code); }
-window.toggleFav = function(idx) { let all = getCurrentItems(); let e = all[idx]; if(e) { e.fav = !e.fav; saveAppData(); renderCurrentTab(); } }
-window.enviarAMano = async function(idx) { let all = getCurrentItems(); let e = all[idx]; if(e) { showToast('📧 Enviando...'); await enviarAGmail(e, idx); } }
-window.deleteItem = function(idx) { 
+function escapeHtml(s) { if(!s) return ''; return String(s).replace(/[&<>]/g,m=>m==='&'?'&amp;':m==='<'?'&lt;':'&gt;'); }
+function goPrevPage(){ if(currentPage>1){ currentPage--; renderCurrentTab(); } }
+function goNextPage(){ let total = Math.ceil(getCurrentItems().length/ITEMS_PER_PAGE); if(currentPage<total){ currentPage++; renderCurrentTab(); } }
+window.viewEmail = function(idx){ let all=getCurrentItems(), e=all[idx]; if(!e) return; alert(`📧 DE: ${e.from}\n📧 ASUNTO: ${e.subject}\n${e.code?`🔐 CÓDIGO: ${e.code}`:''}\n🎯 ${e.badge||'General'}\n\n📝 MENSAJE:\n${e.body?.substring(0,500)}`); if(e.code) navigator.clipboard.writeText(e.code); };
+window.toggleFav = function(idx){ let all=getCurrentItems(), e=all[idx]; if(e){ e.fav=!e.fav; saveAppData(); renderCurrentTab(); } };
+window.enviarAMano = async function(idx){ let all=getCurrentItems(), e=all[idx]; if(e){ showToast('📧 Enviando...'); await enviarAGmail(e, idx); } };
+window.deleteItem = function(idx){
     let pin = prompt('🔐 PIN:'); 
     let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH);
-    if(!pinValido) { showToast('PIN incorrecto', true); return; } 
-    let arr = currentTab === 'inbox' ? inbox : (currentTab === 'archived' ? archived : deadZone); 
-    let all = getCurrentItems(); 
-    let e = all[idx]; 
-    if(e) { 
-        let realIdx = arr.findIndex(item => item.id === e.id); 
-        if(realIdx !== -1) arr.splice(realIdx,1); 
-        saveAppData(); renderCurrentTab(); showToast('🗑️ Eliminado'); 
-    } 
-}
-window.moveToDead = function(idx) { let arr = currentTab === 'inbox' ? inbox : archived; let all = getCurrentItems(); let e = all[idx]; if(e) { let realIdx = arr.findIndex(item => item.id === e.id); if(realIdx !== -1) { arr.splice(realIdx,1); deadZone.unshift(e); saveAppData(); renderCurrentTab(); showToast('📦 Movido a papelera'); } } }
-window.recoverItem = function(idx) { let all = getCurrentItems(); let e = all[idx]; if(e) { let realIdx = deadZone.findIndex(item => item.id === e.id); if(realIdx !== -1) { deadZone.splice(realIdx,1); inbox.unshift(e); saveAppData(); renderCurrentTab(); showToast('↩️ Recuperado'); } } }
-function changeTab(tab) { currentTab = tab; currentPage = 1; document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active'); renderCurrentTab(); }
-function updateSearch() { searchTerm = document.getElementById('searchInputSm').value.toLowerCase(); currentPage = 1; renderCurrentTab(); }
+    if(!pinValido) { showToast('PIN incorrecto', true); return; }
+    let arr = currentTab==='inbox'?inbox:(currentTab==='archived'?archived:deadZone);
+    let all=getCurrentItems(), e=all[idx]; if(e){ let realIdx = arr.findIndex(item=>item.id===e.id); if(realIdx!==-1) { arr.splice(realIdx,1); processedIds.delete(e.id); saveAppData(); renderCurrentTab(); showToast('🗑️ Eliminado'); } }
+};
+window.moveToDead = function(idx){ let arr = currentTab==='inbox'?inbox:archived; let all=getCurrentItems(), e=all[idx]; if(e){ let realIdx = arr.findIndex(item=>item.id===e.id); if(realIdx!==-1){ arr.splice(realIdx,1); deadZone.unshift(e); saveAppData(); renderCurrentTab(); showToast('📦 Movido a papelera'); } } };
+window.recoverItem = function(idx){ let all=getCurrentItems(), e=all[idx]; if(e){ let realIdx = deadZone.findIndex(item=>item.id===e.id); if(realIdx!==-1){ deadZone.splice(realIdx,1); inbox.unshift(e); saveAppData(); renderCurrentTab(); showToast('↩️ Recuperado'); } } };
+function changeTab(tab){ currentTab=tab; currentPage=1; document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelector(`.tab[data-tab="${tab}"]`).classList.add('active'); renderCurrentTab(); }
+function updateSearch(){ searchTerm = document.getElementById('searchInputSm').value.toLowerCase(); currentPage=1; renderCurrentTab(); }
 function exportJson(){ let data={currentProvider,currentEmail,currentLogin,currentDomain,emailCreatedAt,inbox,deadZone,archived,autoArchive,telegramEnabled,autoGmailEnabled,telegramCount,gmailCount,darkMode,notificationsEnabled,soundEnabled,autoCopyCode,guerrillaSession,mailtmAccount,gmailCodigos,gmailPagos,gmailTodo}; let a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'})); a.download=`respaldo_${new Date().toISOString().slice(0,19)}.json`; a.click(); showToast('✅ Exportado'); }
 function exportCsv(){ let all=[...archived,...inbox,...deadZone]; if(all.length===0){showToast('No hay datos',true);return;} let csv=[["Fecha","Remitente","Asunto","Código","Clasificación"]]; all.forEach(m=>{csv.push([m.time,m.from,m.subject,m.code||'',m.badge||'General']);}); let blob=new Blob(["\uFEFF"+csv.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n')],{type:'text/csv'}); let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`codigos_${new Date().toISOString().slice(0,19)}.csv`; a.click(); showToast('✅ CSV exportado'); }
 function showImportModal(){document.getElementById('importModal').style.display='flex';}
 function closeImportModal(){document.getElementById('importModal').style.display='none';}
-function importData(){ try{ let d=JSON.parse(document.getElementById('importJsonData').value); currentProvider=d.currentProvider||'1secmail'; currentEmail=d.currentEmail||''; currentLogin=d.currentLogin||''; currentDomain=d.currentDomain||''; emailCreatedAt=d.emailCreatedAt||null; inbox=d.inbox||[]; deadZone=d.deadZone||[]; archived=d.archived||[]; autoArchive=d.autoArchive!==undefined?d.autoArchive:true; telegramEnabled=d.telegramEnabled!==undefined?d.telegramEnabled:true; autoGmailEnabled=d.autoGmailEnabled!==undefined?d.autoGmailEnabled:true; telegramCount=d.telegramCount||0; gmailCount=d.gmailCount||0; darkMode=d.darkMode||false; notificationsEnabled=d.notificationsEnabled||false; soundEnabled=d.soundEnabled||false; autoCopyCode=d.autoCopyCode!==undefined?d.autoCopyCode:true; guerrillaSession=d.guerrillaSession||null; mailtmAccount=d.mailtmAccount||null; gmailCodigos=d.gmailCodigos||'manzaxxoop@gmail.com'; gmailPagos=d.gmailPagos||'calvoe847@gmail.com'; gmailTodo=d.gmailTodo||'usototal057@gmail.com'; saveAppData(); applyTheme(); updateSwitches(); updateProviderUI(); updateMailDisplay(); startCountdown(); startAutoCheck(); renderCurrentTab(); showToast('✅ Restaurado'); closeImportModal(); }catch(e){showToast('❌ JSON inválido',true);} }
+function importData(){ try{ let d=JSON.parse(document.getElementById('importJsonData').value); currentProvider=d.currentProvider||'1secmail'; currentEmail=d.currentEmail||''; currentLogin=d.currentLogin||''; currentDomain=d.currentDomain||''; emailCreatedAt=d.emailCreatedAt||null; inbox=d.inbox||[]; deadZone=d.deadZone||[]; archived=d.archived||[]; autoArchive=d.autoArchive!==undefined?d.autoArchive:true; telegramEnabled=d.telegramEnabled!==undefined?d.telegramEnabled:true; autoGmailEnabled=d.autoGmailEnabled!==undefined?d.autoGmailEnabled:true; telegramCount=d.telegramCount||0; gmailCount=d.gmailCount||0; darkMode=d.darkMode||false; notificationsEnabled=d.notificationsEnabled||false; soundEnabled=d.soundEnabled||false; autoCopyCode=d.autoCopyCode!==undefined?d.autoCopyCode:true; guerrillaSession=d.guerrillaSession||null; mailtmAccount=d.mailtmAccount||null; gmailCodigos=d.gmailCodigos||'manzaxxoop@gmail.com'; gmailPagos=d.gmailPagos||'calvoe847@gmail.com'; gmailTodo=d.gmailTodo||'usototal057@gmail.com'; processedIds.clear(); [...inbox,...archived,...deadZone].forEach(e=>{if(e.id)processedIds.add(e.id);}); saveAppData(); applyTheme(); updateSwitches(); updateProviderUI(); updateMailDisplay(); startCountdown(); startAutoCheck(); renderCurrentTab(); showToast('✅ Restaurado'); closeImportModal(); }catch(e){showToast('❌ JSON inválido',true);} }
 function clearAllData(){ let pin = prompt('🔐 PIN:'); let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH); if(!pinValido){ showToast('PIN incorrecto', true); return; } localStorage.removeItem(STORAGE_KEY); location.reload(); }
-async function testTelegram() { showToast('📱 Enviando prueba...'); try { let res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: '🦂 *PRUEBA EXITOSA* ✅', parse_mode: 'Markdown' }) }); if(res.ok) showToast('✅ Prueba enviada'); else showToast('❌ Error', true); } catch(e) { showToast('❌ Error', true); } }
-async function testGmail() { showToast('📧 Enviando prueba...'); await enviarAGmail({ from: 'test@test.com', subject: 'Prueba de conexión', body: 'Mensaje de prueba', code: '123456', time: new Date().toLocaleString() }, 0); }
-async function sendStatsToTelegram() { let total = archived.length + inbox.length + deadZone.length; let codes = [...archived, ...inbox, ...deadZone].filter(e => e.code).length; let msg = `📊 *ESTADÍSTICAS*\n📬 Total: ${total}\n🔐 Códigos: ${codes}\n📧 Enviados a Gmail: ${gmailCount}\n🤖 Telegram: ${telegramCount}`; try { await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' }) }); showToast('📊 Estadísticas enviadas'); } catch(e) {} }
-function showGmailConfig() {
-    let pin = prompt('🔐 PIN:'); 
-    let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH);
-    if (!pinValido) { showToast('PIN incorrecto', true); return; }
-    let section = document.getElementById('gmailHiddenSection');
-    if (section.style.display === 'none' || section.style.display === '') {
-        document.getElementById('gmailCodigosInput').value = gmailCodigos;
-        document.getElementById('gmailPagosInput').value = gmailPagos;
-        document.getElementById('gmailTodoInput').value = gmailTodo;
-        section.style.display = 'block';
-        showToast('Configuración de Gmails visible');
-    } else {
-        section.style.display = 'none';
-    }
-}
-function toggleGmailsVisibility() {
-    let pin = prompt('🔐 PIN:'); 
-    let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH);
-    if (!pinValido) { showToast('PIN incorrecto', true); return; }
-    document.getElementById('gmailCodigosSpan').innerHTML = gmailCodigos;
-    document.getElementById('gmailPagosSpan').innerHTML = gmailPagos;
-    document.getElementById('gmailTodoSpan').innerHTML = gmailTodo;
-    let btn = document.getElementById('toggleGmailsBtn');
-    btn.innerHTML = '🙈 Ocultar Gmails';
-    btn.onclick = () => {
-        document.getElementById('gmailCodigosSpan').innerHTML = '********';
-        document.getElementById('gmailPagosSpan').innerHTML = '********';
-        document.getElementById('gmailTodoSpan').innerHTML = '********';
-        btn.innerHTML = '🔒 Mostrar Gmails';
-        btn.onclick = () => toggleGmailsVisibility();
-    };
-}
+async function testTelegram() { showToast('📱 Enviando prueba...'); try { let res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: '🦂 *PRUEBA EXITOSA* ✅', parse_mode:'Markdown' }) }); if(res.ok) showToast('✅ Prueba enviada'); else showToast('❌ Error', true); } catch(e) { showToast('❌ Error', true); } }
+async function testGmail() { showToast('📧 Enviando prueba...'); await enviarAGmail({ from:'test@test.com', subject:'Prueba de conexión', body:'Mensaje de prueba', code:'123456', time:new Date().toLocaleString() },0); }
+async function sendStatsToTelegram() { let total = archived.length+inbox.length+deadZone.length; let codes = [...archived,...inbox,...deadZone].filter(e=>e.code).length; let msg = `📊 *ESTADÍSTICAS*\n📬 Total: ${total}\n🔐 Códigos: ${codes}\n📧 Enviados a Gmail: ${gmailCount}\n🤖 Telegram: ${telegramCount}`; try { await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode:'Markdown' }) }); showToast('📊 Estadísticas enviadas'); } catch(e) {} }
+function showGmailConfig() { let pin = prompt('🔐 PIN:'); let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH); if (!pinValido) { showToast('PIN incorrecto', true); return; } let section = document.getElementById('gmailHiddenSection'); if (section.style.display === 'none' || section.style.display === '') { document.getElementById('gmailCodigosInput').value = gmailCodigos; document.getElementById('gmailPagosInput').value = gmailPagos; document.getElementById('gmailTodoInput').value = gmailTodo; section.style.display = 'block'; showToast('Configuración de Gmails visible'); } else { section.style.display = 'none'; } }
+function toggleGmailsVisibility() { let pin = prompt('🔐 PIN:'); let pinValido = (remoteConfig && pin === remoteConfig.pin) || (btoa(pin) === FALLBACK_PIN_HASH); if (!pinValido) { showToast('PIN incorrecto', true); return; } document.getElementById('gmailCodigosSpan').innerHTML = gmailCodigos; document.getElementById('gmailPagosSpan').innerHTML = gmailPagos; document.getElementById('gmailTodoSpan').innerHTML = gmailTodo; let btn = document.getElementById('toggleGmailsBtn'); btn.innerHTML = '🙈 Ocultar Gmails'; btn.onclick = () => { document.getElementById('gmailCodigosSpan').innerHTML = '********'; document.getElementById('gmailPagosSpan').innerHTML = '********'; document.getElementById('gmailTodoSpan').innerHTML = '********'; btn.innerHTML = '🔒 Mostrar Gmails'; btn.onclick = () => toggleGmailsVisibility(); }; }
 
 function setupEventListeners() {
     document.querySelectorAll('.provider-btn').forEach(btn=>{btn.onclick=()=>{currentProvider=btn.dataset.provider; updateProviderUI(); updateMailDisplay(); saveAppData(); showToast(`📡 ${providerNames[currentProvider]}`); renderCurrentTab();};});
-    document.getElementById('genBtn').onclick=generateEmail;
-    document.getElementById('copyBtn').onclick=copyEmail;
-    document.getElementById('refreshBtn').onclick=manualRefresh;
+    document.getElementById('genBtn').onclick=generateEmail; document.getElementById('copyBtn').onclick=copyEmail; document.getElementById('refreshBtn').onclick=manualRefresh;
     document.getElementById('gearBtn').onclick=()=>document.getElementById('settingsPanel').classList.toggle('show');
-    document.getElementById('telegramSwitchSm').onclick=toggleTelegram;
-    document.getElementById('autoGmailSwitchSm').onclick=toggleAutoGmail;
-    document.getElementById('autoArchiveSwitchSm').onclick=toggleAutoArchive;
-    document.getElementById('themeSwitchSm').onclick=toggleTheme;
-    document.getElementById('notifSwitchSm').onclick=toggleNotifications;
-    document.getElementById('soundSwitchSm').onclick=toggleSound;
-    document.getElementById('autoCopySwitchSm').onclick=toggleAutoCopy;
-    document.getElementById('updateGmailBtn').onclick=updateGmails;
-    document.getElementById('exportJsonBtn').onclick=exportJson;
-    document.getElementById('exportCsvBtn').onclick=exportCsv;
-    document.getElementById('importBackupBtn').onclick=showImportModal;
-    document.getElementById('testTelegramBtnSm').onclick=testTelegram;
-    document.getElementById('testGmailBtnSm').onclick=testGmail;
-    document.getElementById('sendStatsBtn').onclick=sendStatsToTelegram;
-    document.getElementById('clearAllBtnSm').onclick=clearAllData;
-    document.getElementById('confirmImportBtn').onclick=importData;
-    document.getElementById('closeImportModal').onclick=closeImportModal;
-    document.getElementById('searchInputSm').addEventListener('input',updateSearch);
-    document.querySelectorAll('.tab').forEach(t=>{t.onclick=()=>changeTab(t.dataset.tab);});
-    document.getElementById('prevPageBtn').onclick=goPrevPage;
-    document.getElementById('nextPageBtn').onclick=goNextPage;
-    document.getElementById('showGmailConfigBtn').onclick = showGmailConfig;
-    document.getElementById('toggleGmailsBtn').onclick = toggleGmailsVisibility;
+    document.getElementById('telegramSwitchSm').onclick=toggleTelegram; document.getElementById('autoGmailSwitchSm').onclick=toggleAutoGmail; document.getElementById('autoArchiveSwitchSm').onclick=toggleAutoArchive;
+    document.getElementById('themeSwitchSm').onclick=toggleTheme; document.getElementById('notifSwitchSm').onclick=toggleNotifications; document.getElementById('soundSwitchSm').onclick=toggleSound; document.getElementById('autoCopySwitchSm').onclick=toggleAutoCopy;
+    document.getElementById('updateGmailBtn').onclick=updateGmails; document.getElementById('exportJsonBtn').onclick=exportJson; document.getElementById('exportCsvBtn').onclick=exportCsv; document.getElementById('importBackupBtn').onclick=showImportModal;
+    document.getElementById('testTelegramBtnSm').onclick=testTelegram; document.getElementById('testGmailBtnSm').onclick=testGmail; document.getElementById('sendStatsBtn').onclick=sendStatsToTelegram; document.getElementById('clearAllBtnSm').onclick=clearAllData;
+    document.getElementById('confirmImportBtn').onclick=importData; document.getElementById('closeImportModal').onclick=closeImportModal;
+    document.getElementById('searchInputSm').addEventListener('input',updateSearch); document.querySelectorAll('.tab').forEach(t=>{t.onclick=()=>changeTab(t.dataset.tab);});
+    document.getElementById('prevPageBtn').onclick=goPrevPage; document.getElementById('nextPageBtn').onclick=goNextPage;
+    document.getElementById('showGmailConfigBtn').onclick = showGmailConfig; document.getElementById('toggleGmailsBtn').onclick = toggleGmailsVisibility;
     window.addEventListener('click',(e)=>{ if(!document.getElementById('settingsPanel').contains(e.target)&&e.target!==document.getElementById('gearBtn')) document.getElementById('settingsPanel').classList.remove('show'); });
 }
 
 async function init() {
     await loadRemoteConfig();
     document.getElementById('unlockBtn').onclick = verifyPin;
-    document.getElementById('pinInput').addEventListener('keypress', function(e) {
-        if(e.key === 'Enter') verifyPin();
-    });
+    document.getElementById('pinInput').addEventListener('keypress', function(e) { if(e.key === 'Enter') verifyPin(); });
+    setInterval(() => {
+        if(blockUntil > Date.now()) {
+            let remaining = Math.ceil((blockUntil - Date.now()) / 1000);
+            document.getElementById('blockTimer').innerHTML = `⛔ Bloqueado ${remaining}s`;
+            document.getElementById('blockTimer').style.display = 'block';
+        } else if(blockUntil > 0) {
+            blockUntil = 0;
+            document.getElementById('blockTimer').style.display = 'none';
+            document.getElementById('pinError').innerHTML = '';
+        }
+    }, 1000);
 }
-
 init();
 </script>
 </body>
