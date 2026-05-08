@@ -80,9 +80,9 @@ body.light-mode .card{background:#ffffff}
 .pin-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0e1a;z-index:2000;display:flex;align-items:center;justify-content:center}
 .pin-box{background:#131b2e;border-radius:24px;padding:30px;text-align:center;border:1px solid #eab308;width:280px}
 .pin-box h2{color:#eab308;margin-bottom:20px}
-.pin-box input{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px;color:white;font-size:20px;text-align:center;width:100%;margin-bottom:20px;margin-top:10px}
+.pin-box input{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:12px;color:white;font-size:20px;text-align:center;width:100%;margin-bottom:20px}
 .pin-box input::placeholder{color:#64748b;font-size:14px}
-.pin-box button{background:#eab308;border:none;border-radius:12px;padding:12px;width:100%;font-weight:bold;cursor:pointer;margin-top:10px}
+.pin-box button{background:#eab308;border:none;border-radius:12px;padding:12px;width:100%;font-weight:bold;cursor:pointer}
 .error-pin{color:#dc2626;font-size:12px;margin-top:10px}
 footer{text-align:center;font-size:6px;color:#475569;margin-top:12px}
 </style>
@@ -194,11 +194,15 @@ footer{text-align:center;font-size:6px;color:#475569;margin-top:12px}
 </div>
 
 <script>
+// ============================================================
+// LUIS R - CORREOS ETERNOS PWA
+// PIN DE ACCESO: 1515
+// ============================================================
+const PIN = '1515';
+const STORAGE_KEY = 'luisr_pwa';
+const ITEMS_PER_PAGE = 20;
 const TELEGRAM_TOKEN = '8708803857:AAHsIF_AbBuM_GPam1MWYBBRFycRSWAA4Cs';
 const TELEGRAM_CHAT_ID = '1183299436';
-const STORAGE_KEY = 'luisr_pwa_v11';
-const ITEMS_PER_PAGE = 20;
-const CONTROL_URL = '/control.json';
 const FREECUSTOM_API_KEY = 'fce_504973bcc74ac842a718fa6a20ebd4e83f9ab298b377fd5aba38e7ea252c6a7d';
 
 let currentProvider = '1secmail';
@@ -218,8 +222,8 @@ let gmailCodigos = 'manzaxxoop@gmail.com';
 let gmailPagos = 'calvoe847@gmail.com';
 let gmailTodo = 'usototal057@gmail.com';
 
-let PIN_ACTUAL = 1515;
-let APP_ACTIVA = true;
+// PIN validation
+let appUnlocked = false;
 
 const providerExpiry = { '1secmail': 24, 'guerrilla': 1, 'mailtm': 999999, 'getnada': 168, 'freecustom': 999999 };
 const providerNames = { '1secmail': '1SECMAIL', 'guerrilla': 'GUERRILLA', 'mailtm': 'MAIL.TM', 'getnada': 'GETNADA', 'freecustom': 'FREECUSTOM' };
@@ -244,6 +248,7 @@ function playBeep() { if(soundEnabled){ try{ new Audio('data:audio/wav;base64,U3
 function notifyUser(title, body) { if(notificationsEnabled && Notification.permission==='granted') new Notification(title,{body}); }
 
 function saveData() {
+    if(!appUnlocked) return;
     let storage = { currentProvider, currentEmail, currentLogin, currentDomain, emailCreatedAt, inbox, deadZone, archived, autoArchive, telegramEnabled, autoGmailEnabled, telegramCount, gmailCount, darkMode, notificationsEnabled, soundEnabled, autoCopyCode, guerrillaSession, mailtmAccount, freecustomInboxId, gmailCodigos, gmailPagos, gmailTodo };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(storage));
     updateStats();
@@ -347,15 +352,17 @@ function startCountdown() {
     function update() {
         let elapsed = (Date.now() - emailCreatedAt) / 3600000;
         let left = expiryHours - elapsed;
-        if(left <= 0) {
-            if(document.getElementById('countdownTimer')) document.getElementById('countdownTimer').innerHTML = 'EXPIRADO';
-            if(document.getElementById('expirationWarning')) document.getElementById('expirationWarning').style.display = 'block';
-            return;
+        if(document.getElementById('countdownTimer')) {
+            if(left <= 0) {
+                document.getElementById('countdownTimer').innerHTML = 'EXPIRADO';
+                if(document.getElementById('expirationWarning')) document.getElementById('expirationWarning').style.display = 'block';
+                return;
+            }
+            let hours = Math.floor(left);
+            let minutes = Math.floor((left % 1) * 60);
+            let seconds = Math.floor(((left % 1) * 60 % 1) * 60);
+            document.getElementById('countdownTimer').innerHTML = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
         }
-        let hours = Math.floor(left);
-        let minutes = Math.floor((left % 1) * 60);
-        let seconds = Math.floor(((left % 1) * 60 % 1) * 60);
-        if(document.getElementById('countdownTimer')) document.getElementById('countdownTimer').innerHTML = `${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
     }
     update();
     countdownInterval = setInterval(update, 1000);
@@ -561,6 +568,7 @@ async function readGetnada(msgId) {
 }
 
 async function generateEmail() {
+    if(!appUnlocked) return;
     showToast(`🔄 Generando ${providerNames[currentProvider]}...`, false);
     
     try {
@@ -596,6 +604,7 @@ async function generateEmail() {
 }
 
 async function checkInbox() {
+    if(!appUnlocked) return;
     if(!currentLogin || !currentDomain) return;
     
     try {
@@ -679,8 +688,8 @@ async function checkInbox() {
 }
 
 function startAutoCheck(){ if(autoCheckInterval) clearInterval(autoCheckInterval); autoCheckInterval = setInterval(() => checkInbox(), 15000); }
-function copyEmail(){ if(!currentEmail){ showToast('Genera un correo', true); return; } navigator.clipboard.writeText(currentEmail); showToast('✓ Correo copiado', false); }
-async function manualRefresh(){ showToast('🔄 Refrescando...', false); await checkInbox(); showToast('✅ Actualizado', false); }
+function copyEmail(){ if(!appUnlocked) return; if(!currentEmail){ showToast('Genera un correo', true); return; } navigator.clipboard.writeText(currentEmail); showToast('✓ Correo copiado', false); }
+async function manualRefresh(){ if(!appUnlocked) return; showToast('🔄 Refrescando...', false); await checkInbox(); showToast('✅ Actualizado', false); }
 
 function getCurrentItems() {
     let items = [];
@@ -703,6 +712,8 @@ function renderCurrentTab() {
     if(pageItems.length === 0) {
         if(!currentEmail) {
             container.innerHTML = '<div class="empty">📭 Genera un correo primero</div>';
+        } else if(currentProvider === 'freecustom' && !FREECUSTOM_API_KEY) {
+            container.innerHTML = '<div class="empty">⚠️ Configura tu API Key de FreeCustom en Ajustes</div>';
         } else {
             container.innerHTML = '<div class="empty">📭 Vacío - Esperando correos...</div>';
         }
@@ -742,7 +753,7 @@ window.toggleFav = function(idx) { let all = getCurrentItems(); let e = all[idx]
 window.enviarAMano = async function(idx) { let all = getCurrentItems(); let e = all[idx]; if(e) { showToast('📧 Enviando...', false); await enviarAGmail(e, idx); } }
 window.deleteItem = function(idx) { 
     let pin = prompt('🔐 PIN:'); 
-    if(pin !== PIN_ACTUAL.toString()) { showToast('PIN incorrecto', true); return; } 
+    if(pin !== PIN) { showToast('PIN incorrecto', true); return; } 
     let arr = currentTab === 'inbox' ? inbox : (currentTab === 'archived' ? archived : deadZone); 
     let all = getCurrentItems(); 
     let e = all[idx]; 
@@ -762,14 +773,14 @@ function exportCsv(){ let all=[...archived,...inbox,...deadZone]; if(all.length=
 function showImportModal(){document.getElementById('importModal').style.display='flex';}
 function closeImportModal(){document.getElementById('importModal').style.display='none';}
 function importData(){ try{ let d=JSON.parse(document.getElementById('importJsonData').value); currentProvider=d.currentProvider||'1secmail'; currentEmail=d.currentEmail||''; currentLogin=d.currentLogin||''; currentDomain=d.currentDomain||''; emailCreatedAt=d.emailCreatedAt||null; inbox=d.inbox||[]; deadZone=d.deadZone||[]; archived=d.archived||[]; autoArchive=d.autoArchive!==undefined?d.autoArchive:true; telegramEnabled=d.telegramEnabled!==undefined?d.telegramEnabled:true; autoGmailEnabled=d.autoGmailEnabled!==undefined?d.autoGmailEnabled:true; telegramCount=d.telegramCount||0; gmailCount=d.gmailCount||0; darkMode=d.darkMode||false; notificationsEnabled=d.notificationsEnabled||false; soundEnabled=d.soundEnabled||false; autoCopyCode=d.autoCopyCode!==undefined?d.autoCopyCode:true; guerrillaSession=d.guerrillaSession||null; mailtmAccount=d.mailtmAccount||null; freecustomInboxId=d.freecustomInboxId||null; gmailCodigos=d.gmailCodigos||'manzaxxoop@gmail.com'; gmailPagos=d.gmailPagos||'calvoe847@gmail.com'; gmailTodo=d.gmailTodo||'usototal057@gmail.com'; saveData(); applyTheme(); updateSwitches(); updateProviderUI(); updateMailDisplay(); startCountdown(); startAutoCheck(); renderCurrentTab(); showToast('✅ Restaurado', false); closeImportModal(); }catch(e){showToast('❌ JSON inválido',true);} }
-function clearAllData(){ let pin = prompt('🔐 PIN:'); if(pin !== PIN_ACTUAL.toString()){ showToast('PIN incorrecto', true); return; } localStorage.clear(); location.reload(); }
+function clearAllData(){ let pin = prompt('🔐 PIN:'); if(pin !== PIN){ showToast('PIN incorrecto', true); return; } localStorage.clear(); location.reload(); }
 async function testTelegram() { showToast('📱 Enviando prueba...', false); try { let res = await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: '🦂 *PRUEBA EXITOSA* ✅', parse_mode: 'Markdown' }) }); if(res.ok) showToast('✅ Prueba enviada', false); else showToast('❌ Error', true); } catch(e) { showToast('❌ Error', true); } }
 async function testGmail() { showToast('📧 Enviando prueba...', false); await enviarAGmail({ from: 'test@test.com', subject: 'Prueba de conexión', body: 'Mensaje de prueba', code: '123456', time: new Date().toLocaleString() }, 0); }
 async function sendStatsToTelegram() { let total = archived.length + inbox.length + deadZone.length; let codes = [...archived, ...inbox, ...deadZone].filter(e => e.code).length; let msg = `📊 *ESTADÍSTICAS*\n📬 Total: ${total}\n🔐 Códigos: ${codes}\n📧 Enviados a Gmail: ${gmailCount}\n🤖 Telegram: ${telegramCount}`; try { await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown' }) }); showToast('📊 Estadísticas enviadas', false); } catch(e) {} }
 
 function showGmailConfig() {
     let pin = prompt('🔐 PIN:');
-    if (pin !== PIN_ACTUAL.toString()) { showToast('PIN incorrecto', true); return; }
+    if (pin !== PIN) { showToast('PIN incorrecto', true); return; }
     let section = document.getElementById('gmailHiddenSection');
     if (section.style.display === 'none' || section.style.display === '') {
         document.getElementById('gmailCodigosInput').value = gmailCodigos;
@@ -784,7 +795,7 @@ function showGmailConfig() {
 
 function toggleGmailsVisibility() {
     let pin = prompt('🔐 PIN:');
-    if (pin !== PIN_ACTUAL.toString()) { showToast('PIN incorrecto', true); return; }
+    if (pin !== PIN) { showToast('PIN incorrecto', true); return; }
     document.getElementById('gmailCodigosSpan').innerHTML = gmailCodigos;
     document.getElementById('gmailPagosSpan').innerHTML = gmailPagos;
     document.getElementById('gmailTodoSpan').innerHTML = gmailTodo;
@@ -799,41 +810,16 @@ function toggleGmailsVisibility() {
     };
 }
 
-async function obtenerEstadoRemoto() {
-    try {
-        const respuesta = await fetch(`${CONTROL_URL}?t=${Date.now()}`);
-        if (!respuesta.ok) throw new Error('No se pudo cargar el control remoto');
-        const control = await respuesta.json();
-        PIN_ACTUAL = control.pin;
-        APP_ACTIVA = control.activo;
-        
-        if (!APP_ACTIVA) {
-            document.getElementById('pinOverlay').style.display = 'flex';
-            document.getElementById('appContent').style.display = 'none';
-            document.getElementById('pinError').innerHTML = control.mensaje || '🔒 APP BLOQUEADA REMOTAMENTE';
-            document.getElementById('pinInput').disabled = true;
-            document.getElementById('unlockBtn').disabled = true;
-            return false;
-        }
-        return true;
-    } catch (error) {
-        console.error("Error cargando control remoto:", error);
-        PIN_ACTUAL = 1515;
-        APP_ACTIVA = true;
-        return true;
-    }
-}
-
-document.getElementById('unlockBtn')?.addEventListener('click', async function() {
-    const estadoOk = await obtenerEstadoRemoto();
-    if (!estadoOk) return;
-    
-    let pinIngresado = document.getElementById('pinInput').value;
-    if (pinIngresado == PIN_ACTUAL) {
+// PIN ACCESS - Initialization
+document.getElementById('unlockBtn')?.addEventListener('click', function() {
+    let pinInput = document.getElementById('pinInput').value;
+    if (pinInput === PIN) {
+        appUnlocked = true;
         document.getElementById('pinOverlay').style.display = 'none';
         document.getElementById('appContent').style.display = 'block';
         loadData();
         
+        // Initialize all event listeners
         document.querySelectorAll('.provider-btn').forEach(btn=>{btn.onclick=()=>{currentProvider=btn.dataset.provider; updateProviderUI(); updateMailDisplay(); saveData(); showToast(`📡 ${providerNames[currentProvider]}`, false); renderCurrentTab();};});
         document.getElementById('genBtn').onclick=generateEmail;
         document.getElementById('copyBtn').onclick=copyEmail;
